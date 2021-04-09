@@ -123,3 +123,9 @@ while(True):
     else:
         print("done")
         break
+
+#union the constant segments
+#for each segment calculate the pearson for the points in the segment
+#for the array of pearsons aplly statistic
+#calculate the "real" speed in constant segment (קו מגמה/ממוצע)
+#calculate how much the speeds are far from the "real" speed
