@@ -4,6 +4,7 @@ import datetime
 import functools
 import math
 import operator
+import statistics
 
 class Segment:
     def __init__(self, startTime, endTime, startSpeed, endSpeed):
@@ -94,15 +95,12 @@ def AccelerationFromZero(segments):
 def DeccelerationToZero(segments):
     return list(filter(lambda segment: segment.endSpeed < 10 and segment.isDecceleration(), segments))
 
-def statistics(arr):
+def statistic(arr):
     count = len(arr)
     if(count == 0):
         return None
-
-    avg = functools.reduce(operator.add, arr, 0)/count
-    variance = functools.reduce(lambda sum, value: (value - avg)**2 + sum, arr, 0)/count
-    middle = arr.sort()[count/2]
-    return list(avg, variance, middle)
+    avg = sum(arr)/count
+    return [avg, statistics.variance(arr), statistics.median(arr)]
 
 driveID = input("enter driveID:   ")
 connection = connect ("84.229.64.27", "Omer", "OMEome0707", "ottomate")
@@ -118,10 +116,10 @@ while(True):
     elif(choise == "segments"):
         for segment in segments:
             print(segment.toString())
-    elif(choise == "d"):
-        print(statistics(accelerations))
     elif(choise == "a"):
-        print(statistics(deccelerations))
+        print(statistic(accelerations))
+    elif(choise == "d"):
+        print(statistic(deccelerations))
     else:
         print("done")
         break
