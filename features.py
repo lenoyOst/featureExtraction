@@ -201,7 +201,6 @@ def statistic(arr):
 
 drive = Drive(input("enter driveID:   "))
 
-
 file = open(drive.id+".txt", 'w')
 lines = []
 lines.append("1) "+str(statistic(drive.SpeedAccelerationsFromZero()))+'\n')
@@ -217,6 +216,6 @@ file.writelines(lines)
 file.close()
 
 if (input("create excel files? (y/n)   ") == 'y'):
-    drive.createSpeedGraph(drive+"speeds")
-    drive.createSpeedSegmentGraph(drive+"segments")
-    drive.createPedalGraph(drive +"pedals")
+    drive.createSpeedGraph(drive.id+"speeds")
+    drive.createSpeedSegmentGraph(drive.id+"segments")
+    drive.createPedalGraph(drive.id +"pedals")
