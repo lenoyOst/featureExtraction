@@ -102,7 +102,7 @@ class Segment:
                     self.driveType = 'a'
             else:
                 precents = abs(endSpeed - startSpeed) / startSpeed
-                if(precents > 0.2 and not (startSpeed <10 and endSpeed <10)):
+                if(precents > 0.15 and not (startSpeed <10 and endSpeed <10)):
                     if(self.incline>0):
                         self.driveType = 'a'
                     else:
@@ -134,12 +134,19 @@ class Drive:
         cursor.execute("SELECT time, speed FROM drive_characteristics WHERE drive_id = "+self.id)
         result = cursor.fetchall()
         self.speedData = list(map(lambda couple: (((datetime.datetime.strptime(couple[0], "%Y-%m-%d %H:%M:%S.%f") - startTime).total_seconds(), couple[1])), result))
+        self.timeDifrrendce = 0.0
+        for i in range (0 , len(self.speedData)-1):
+            self.timeDifrrendce+=(self.speedData[i+1][0] - self.speedData[i][0])
+        self.timeDifrrendce/=(len(self.speedData)-1)
+        self.skip = round(0.45/self.timeDifrrendce)
+        print("this is the time d : " , self.timeDifrrendce)
         #calculating the constant/acceleration/decceleration segments 
         points = []
-        for i in range(1, len(self.speedData) -1):
+        for i in range(1, len(self.speedData) - self.skip , self.skip):
             if((self.speedData[i][1] - self.speedData[i-1][1]) * (self.speedData[i+1][1] - self.speedData[i][1]) <= 0):
                 points.append((self.speedData[i][0], self.speedData[i][1]))
-        c = 3
+        
+        c = 0.8
         start = 0
         end = 1
         segments = []
@@ -168,6 +175,7 @@ class Drive:
                 isThereConstant = True
         if(isThereConstant):
             self.speedSegments.append(cSegment) 
+
         #getting the pedalData array from the DB (setting the correct time stemps)
         cursor.execute("SELECT MIN(pedal_degree) FROM drive_characteristics WHERE drive_id = "+self.id)
         result = cursor.fetchall()
@@ -207,7 +215,6 @@ class Drive:
             s.write(i, 1, self.pedalData[i][1])
             s.write(i, 0, self.pedalData[i][0])
         wb.save(name+'.xls')
-        #lenoy test
     #speed
     def speedAccelerationsFromZero(self):        
         accelerations = list(filter(lambda segment: segment.startSpeed < 10 and segment.isAcceleration(), self.speedSegments))
