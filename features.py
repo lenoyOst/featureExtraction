@@ -8,6 +8,7 @@ import statistics
 import scipy.stats
 import numpy
 import requests
+from enum import Enum
 
 def convertGpsDateTo_latlon(latGPS, latDirection, lonGPS, lonDirection):
     if((latGPS is None) or (latDirection is None) or (lonGPS is None) or (lonDirection is None)):
@@ -48,11 +49,28 @@ def getSpeedLimit(latlon):
             index+=1
         if(len(speed) != 0):
             break
-
+    print(speed)
     if(speed!=''):
         return float(speed)
     else:
         return None
+
+class Feature(Enum):
+    AccelerationsFromZero = 1
+    DeccelerationsToZero = 2
+    VarianceConstantSpeed = 3
+    DistancesFromRegressionAcceleration = 4
+    DistancesFromRegressionDecceleration = 5
+    PearsonsAcceleration = 6
+    PearsonsDecceleration = 7
+    ConstantExtremePedal = 8
+    ConstantPressPedalInclines = 9
+    ConstantReleasePedalInclines = 10
+    ConstantPressPedalTime = 11
+    ConstantAboveSpeedLimitTime = 12
+    ConstantAboveSpeedLimitSpeeed = 13
+    ConstantBelowSpeedLimitSpeeed = 14
+
 class Line:
     def __init__(self, points):
         xs = list(map(lambda point: point[0], points))
@@ -121,7 +139,7 @@ class Drive:
         for i in range(1, len(self.speedData) -1):
             if((self.speedData[i][1] - self.speedData[i-1][1]) * (self.speedData[i+1][1] - self.speedData[i][1]) <= 0):
                 points.append((self.speedData[i][0], self.speedData[i][1]))
-        c = 0.8
+        c = 3
         start = 0
         end = 1
         segments = []
@@ -159,9 +177,15 @@ class Drive:
         result = cursor.fetchall()
         self.pedalData = list(map(lambda couple: (((datetime.datetime.strptime(couple[0], "%Y-%m-%d %H:%M:%S.%f") - startTime).total_seconds(), couple[1] - minPedal)), result))
         #speedLimit
-        cursor.execute("SELECT time, lat , latD , lon , lonD FROM drive_characteristics WHERE drive_id = "+self.id) 
-        result = cursor.fetchall()
-        self.speedLimitData = list(map(lambda row : ((datetime.datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f") - startTime).total_seconds(), getSpeedLimit(convertGpsDateTo_latlon(row[1],row[2],row[3],row[4]))) , result))
+        #cursor.execute("SELECT time, lat , latD , lon , lonD FROM drive_characteristics WHERE drive_id = "+self.id) 
+        #result = cursor.fetchall()
+        #print(len(result))
+        #result = list(map(lambda row : ((datetime.datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f") - startTime).total_seconds(), row[1],row[2],row[3],row[4]) , result))
+        #constant = list(filter(lambda segment: segment.isConstant() and any(speed != 0 for speed in self.speedData[segment.startIndex:segment.endIndex+1]), self.speedSegments))
+        #result = list(filter(lambda row: any(row[0] >= segment.startTime and row[0] <= segment.endTime for segment in constant), result))
+        #print(len(result))
+        #self.speedLimitData = list(map(lambda row : (row[0], getSpeedLimit(convertGpsDateTo_latlon(row[1],row[2],row[3],row[4]))) , result))
+    #graphs
     def createSpeedGraph(self, name):
         wb = Workbook()
         s = wb.add_sheet(name)
@@ -184,25 +208,65 @@ class Drive:
             s.write(i, 0, self.pedalData[i][0])
         wb.save(name+'.xls')
         #lenoy test
-    def createMaxPedalGraph(self, name):
-        wb = Workbook()
-        s = wb.add_sheet(name)
-        points = [] 
-        for i in range(1, len(self.pedalData) -1):
-            if((self.pedalData[i][1] - self.pedalData[i-1][1]) * (self.pedalData[i+1][1] - self.pedalData[i][1]) <= 0):
-                points.append((self.speedData[i][0], self.speedData[i][1]))
-        for i in range(len(points)):
-            s.write(i, 1, self.pedalData[i][1])
-            s.write(i, 0, self.pedalData[i][0])
-        wb.save(name+'.xls')
-    def SpeedAccelerationsFromZero(self):        
+    #speed
+    def speedAccelerationsFromZero(self):        
         accelerations = list(filter(lambda segment: segment.startSpeed < 10 and segment.isAcceleration(), self.speedSegments))
         return list(map(lambda segment: segment.incline, accelerations))
-    def SpeedDeccelerationsToZero(self):
+    def speedDeccelerationsToZero(self):
         deccelerations = list(filter(lambda segment: segment.endSpeed < 10 and segment.isDecceleration(), self.speedSegments))
         return list(map(lambda segment: segment.incline, deccelerations))
+    def distancesFromAvgConstantSpeed(self):
+        constant = list(filter(lambda segment: segment.isConstant(), self.speedSegments))
+        segments = list(map(lambda segment: self.speedData[self.speedData.index(segment.startPoint()): self.speedData.index(segment.endPoint())+1], constant))
+        speedss = list(map(lambda segment: list(map(lambda point: point[1], segment)), segments))
+        speedss = list(filter(lambda speeds: not all(speed == 0 for speed in speeds), speedss))
+        diffrences = list(map(lambda speeds: statistics.variance(speeds)/(sum(speeds)/len(speeds)), speedss))
+        return diffrences
+    def distancesFromRegressionSpeedAcceleration(self):
+        constant = list(filter(lambda segment: segment.isAcceleration(), self.speedSegments))
+        segments = list(map(lambda segment: self.speedData[self.speedData.index(segment.startPoint()): self.speedData.index(segment.endPoint())+1], constant))
+        lines = list(map(lambda pointList: (pointList ,Line(pointList)), segments))
+        middlesDistancess = list(map(lambda pointsLine : (pointsLine[1].middleSpeed, list(map(lambda point: pointsLine[1].distance(point), pointsLine[0]))), lines))
+        return list(map(lambda middleDistances: (sum(middleDistances[1])/len(middleDistances[1])), middlesDistancess))  
+    def distancesFromRegressionSpeedDecceleration(self):
+        constant = list(filter(lambda segment: segment.isDecceleration(), self.speedSegments))
+        segments = list(map(lambda segment: self.speedData[self.speedData.index(segment.startPoint()): self.speedData.index(segment.endPoint())+1], constant))
+        lines = list(map(lambda pointList: (pointList ,Line(pointList)), segments))
+        middlesDistancess = list(map(lambda pointsLine : (pointsLine[1].middleSpeed, list(map(lambda point: pointsLine[1].distance(point), pointsLine[0]))), lines))
+        return list(map(lambda middleDistances: (sum(middleDistances[1])/len(middleDistances[1])), middlesDistancess))   
+    def distancesFromRegressionConstantSpeed(self):
+        constant = list(filter(lambda segment: segment.isConstant(), self.speedSegments))
+        segments = list(map(lambda segment: self.speedData[self.speedData.index(segment.startPoint()): self.speedData.index(segment.endPoint())+1], constant))
+        segments = list(filter(lambda pointsList: not all(point[1] == 0 for point in pointsList), segments))
+        lines = list(map(lambda pointList: (pointList ,Line(pointList)), segments))
+        middlesDistancess = list(map(lambda pointsLine : (pointsLine[1].middleSpeed, list(map(lambda point: pointsLine[1].distance(point), pointsLine[0]))), lines))
+        return list(map(lambda middleDistances: (sum(middleDistances[1])/len(middleDistances[1]))/middleDistances[0], middlesDistancess))   
+    def pearsonsAcceleration(self):
+        pearson = []
+        segments = list(filter(lambda segment: segment.isAcceleration(), self.speedSegments))
+        for segment in segments:
+            points = self.speedData[self.speedData.index(segment.startPoint()): self.speedData.index(segment.endPoint())+1]
+            x = list(map(lambda point: point[0], points))
+            y = list(map(lambda point: point[1], points))
+            if(all(speed == y[0] for speed in y)):
+                pearson.append(1)
+            else:
+                pearson.append(abs(scipy.stats.pearsonr(x, y)[0]))
+        return pearson
+    def pearsonsDecceleration(self):
+        pearson = []
+        segments = list(filter(lambda segment: segment.isDecceleration(), self.speedSegments))
+        for segment in segments:
+            points = self.speedData[self.speedData.index(segment.startPoint()): self.speedData.index(segment.endPoint())+1]
+            x = list(map(lambda point: point[0], points))
+            y = list(map(lambda point: point[1], points))
+            if(all(speed == y[0] for speed in y)):
+                pearson.append(1)
+            else:
+                pearson.append(abs(scipy.stats.pearsonr(x, y)[0]))
+        return pearson    
     #pedal 
-    def extreme_points_in_constant(self):
+    def constantExtremePedal(self):
         constants = list(filter(lambda segment: segment.isConstant(), self.speedSegments))
         extremePointsInSegment = []
         for segment in constants:
@@ -212,29 +276,29 @@ class Drive:
                     count+=1
             extremePointsInSegment.append(count / (segment.endTime - segment.startTime))
         return extremePointsInSegment
-
-    def inclines_of_pedal_press_in_constant(self):
+    def constantPressPedalInclines(self):
         constants = list(filter(lambda segment: segment.isConstant(), self.speedSegments))
+        constants = list(filter(lambda segment: not all(speed == 0 for speed in self.speedData[segment.startIndex:segment.endIndex]), constants))
         inclines = []
         for segment in constants:
             for i in range(segment.startIndex + 1 , segment.endIndex):
-                if((self.pedalData[i][1] - self.pedalData[i-1][1]) * (self.pedalData[i+1][1] - self.pedalData[i][1]) <= 0): 
+                if((self.pedalData[i][1] - self.pedalData[i-1][1]) * (self.pedalData[i+1][1] - self.pedalData[i][1]) <= 0 and (self.pedalData[i][1] - self.pedalData[i-1][1] != 0 or self.pedalData[i+1][1] - self.pedalData[i][1] != 0)): 
                     num = self.pedalData[i][1] - self.pedalData[i-1][1] / (self.pedalData[i][0] - self.pedalData[i-1][0])
-                    if(num >= 0):   
-                        inclines.append(num)
-        return inclines
-    
-    def inclines_of_pedal_release_in_constant(self):
+                    if(num > 0 or (len(inclines) != 0 and num == 0 and i > inclines[len(inclines) - 1][1] + 2)):   
+                        inclines.append((num, i))
+        return list(map(lambda pair: pair[0], inclines))   
+    def constantReleasePedalInclines(self):
         constants = list(filter(lambda segment: segment.isConstant(), self.speedSegments))
+        constants = list(filter(lambda segment: not all(speed == 0 for speed in self.speedData[segment.startIndex:segment.endIndex]), constants))
         inclines = []
         for segment in constants:
             for i in range(segment.startIndex + 1 , segment.endIndex+1):
-                if((self.pedalData[i][1] - self.pedalData[i-1][1]) * (self.pedalData[i+1][1] - self.pedalData[i][1]) <= 0): 
+                if((self.pedalData[i][1] - self.pedalData[i-1][1]) * (self.pedalData[i+1][1] - self.pedalData[i][1]) <= 0 and (self.pedalData[i][1] - self.pedalData[i-1][1] != 0 or self.pedalData[i+1][1] - self.pedalData[i][1] != 0)): 
                     num = self.pedalData[i][1] - self.pedalData[i-1][1] / (self.pedalData[i][0] - self.pedalData[i-1][0])
-                    if(num <= 0):   
-                        inclines.append(num)
-        return inclines
-    def constant_time_press_constant(self):
+                    if(num < 0 or (len(inclines) != 0 and num == 0 and i > inclines[len(inclines) - 1][1] + 1)):   
+                        inclines.append((num, i))
+        return list(map(lambda pair: pair[0], inclines))   
+    def constantPressPedalTime(self):
         constants = list(filter(lambda segment: segment.isConstant(), self.speedSegments))
         extremePoints = []
         timeConstant = []
@@ -248,8 +312,7 @@ class Drive:
                         timeConstant.append(extremePoints[j][0] - extremePoints[j-1][0])
                     j+=1
         return timeConstant
-
-    def constant_time_release_constant(self):
+    def constantReleasePedalTime(self):
         constants = list(filter(lambda segment: segment.isConstant(), self.speedSegments))
         extremePoints = []
         timeConstant = []
@@ -263,58 +326,8 @@ class Drive:
                         timeConstant.append(extremePoints[j][0] - extremePoints[j-1][0])
                     j+=1
         return timeConstant
-    #end pedal related manipulation
-    def diffrencesFromAvgConstantSpeed(self):
-        constant = list(filter(lambda segment: segment.isConstant(), self.speedSegments))
-        segments = list(map(lambda segment: self.speedData[self.speedData.index(segment.startPoint()): self.speedData.index(segment.endPoint())+1], constant))
-        speedss = list(map(lambda segment: list(map(lambda point: point[1], segment)), segments))
-        speedss = list(filter(lambda speeds: not all(speed == 0 for speed in speeds), speedss))
-        diffrences = list(map(lambda speeds: statistics.variance(speeds)/(sum(speeds)/len(speeds)), speedss))
-        return diffrences
-    
-    def distancesFromRegressionSpeedAcceleration(self):
-        constant = list(filter(lambda segment: segment.isAcceleration(), self.speedSegments))
-        segments = list(map(lambda segment: self.speedData[self.speedData.index(segment.startPoint()): self.speedData.index(segment.endPoint())+1], constant))
-        lines = list(map(lambda pointList: (pointList ,Line(pointList)), segments))
-        middlesDistancess = list(map(lambda pointsLine : (pointsLine[1].middleSpeed, list(map(lambda point: pointsLine[1].distance(point), pointsLine[0]))), lines))
-        return list(map(lambda middleDistances: (sum(middleDistances[1])/len(middleDistances[1]))/middleDistances[0], middlesDistancess))
-    
-    def distancesFromRegressionSpeedDecceleration(self):
-        constant = list(filter(lambda segment: segment.isDecceleration(), self.speedSegments))
-        segments = list(map(lambda segment: self.speedData[self.speedData.index(segment.startPoint()): self.speedData.index(segment.endPoint())+1], constant))
-        lines = list(map(lambda pointList: (pointList ,Line(pointList)), segments))
-        middlesDistancess = list(map(lambda pointsLine : (pointsLine[1].middleSpeed, list(map(lambda point: pointsLine[1].distance(point), pointsLine[0]))), lines))
-        return list(map(lambda middleDistances: (sum(middleDistances[1])/len(middleDistances[1]))/middleDistances[0], middlesDistancess))
-    
-    def distancesFromRegressionConstantSpeed(self):
-        constant = list(filter(lambda segment: segment.isConstant(), self.speedSegments))
-        segments = list(map(lambda segment: self.speedData[self.speedData.index(segment.startPoint()): self.speedData.index(segment.endPoint())+1], constant))
-        segments = list(filter(lambda pointsList: not all(point[1] == 0 for point in pointsList), segments))
-        lines = list(map(lambda pointList: (pointList ,Line(pointList)), segments))
-        middlesDistancess = list(map(lambda pointsLine : (pointsLine[1].middleSpeed, list(map(lambda point: pointsLine[1].distance(point), pointsLine[0]))), lines))
-        return list(map(lambda middleDistances: (sum(middleDistances[1])/len(middleDistances[1]))/middleDistances[0], middlesDistancess))
-    
-    def PedalAccelerationFromZero(self):
-        accelerations = []
-        for i in range(len(self.pedalData) - 1):
-            if(self.pedalData[i][1] == 0 and self.pedalData[i+1][1] != 0):
-                start = self.pedalData[i]
-            elif(self.pedalData[i][1] > self.pedalData[i+1][1]):
-                accelerations.append((self.pedalData[i][1] - start[1]) / self.pedalData[i][0] - start[0])
-        return accelerations
-    def pearsons(self):
-        pearson = []
-        for segment in self.speedSegments:
-            points = self.speedData[self.speedData.index(segment.startPoint()): self.speedData.index(segment.endPoint())+1]
-            x = list(map(lambda point: point[0], points))
-            y = list(map(lambda point: point[1], points))
-            if(all(speed == y[0] for speed in y)):
-                pearson.append(1)
-            else:
-                pearson.append(abs(scipy.stats.pearsonr(x, y)[0]))
-        return pearson
-    #speed limit statiscs
-    def time_above_speedLimit(self):
+    #speedLimit
+    def constantAboveSpeedLimitTime(self):
         constant = list(filter(lambda segment : segment.isConstant(),self.speedSegments))
         timeAboveSpeedLimit = []
         for segment in constant:
@@ -324,7 +337,7 @@ class Drive:
                     time+=self.speedLimitData[i+1][0] - self.speedLimitData[i][0]
             timeAboveSpeedLimit.append(time/(self.speedLimitData[segment.endIndex][0] - self.speedLimitData[segment.startIndex][0]))
         return timeAboveSpeedLimit 
-    def speed_above_speedLimit(self):
+    def constantAboveSpeedLimitSpeeed(self):
         constant = list(filter(lambda segment : segment.isConstant(),self.speedSegments))
         speedAboveSpeedLimit = []
         for segment in constant:
@@ -332,7 +345,7 @@ class Drive:
                 if((self.speedLimitData[i][1] is not None) and self.speedLimitData[i][1] < self.speedData[i][1]):
                     speedAboveSpeedLimit.append(self.speedData[i][1] / self.speedLimitData[i][1])
         return speedAboveSpeedLimit   
-    def speed_below_speedLimit(self):
+    def constantBelowSpeedLimitSpeeed(self):
         constant = list(filter(lambda segment : segment.isConstant(),self.speedSegments))
         speedBelowSpeedLimit = []
         for segment in constant:
@@ -340,7 +353,7 @@ class Drive:
                 if((self.speedLimitData[i][1] is not None) and self.speedLimitData[i][1] > self.speedData[i][1]):
                     speedBelowSpeedLimit.append(self.speedData[i][1] / self.speedLimitData[i][1])
         return speedBelowSpeedLimit 
-    #end speed limit
+
 def statistic(arr):
     count = len(arr)
     if(count == 0):
@@ -351,29 +364,26 @@ def statistic(arr):
 def extract(cursor , driveId):
     drive = Drive(cursor , driveId )
 
-    file = open(drive.id+".txt", 'w')
-    lines = []
-    lines.append("1) "+str(statistic(drive.SpeedAccelerationsFromZero()))+'\n')
-    lines.append("2) "+str(statistic(drive.SpeedDeccelerationsToZero()))+'\n')
-    lines.append("3) "+str(statistic(drive.diffrencesFromAvgConstantSpeed()))+'\n')
-    lines.append("4) "+str(statistic(drive.distancesFromRegressionSpeedAcceleration()))+'\n')
-    lines.append("5) "+str(statistic(drive.distancesFromRegressionSpeedDecceleration()))+'\n')
-    lines.append("6) "+str(statistic(drive.distancesFromRegressionConstantSpeed()))+'\n')
-    lines.append("7) "+str(statistic(drive.PedalAccelerationFromZero()))+'\n')
-    lines.append("8) "+str(statistic(drive.inclines_of_pedal_press_in_constant()))+'\n')
-    lines.append("9) "+str(statistic(drive.inclines_of_pedal_release_in_constant()))+'\n')
-    lines.append("10) "+str(statistic(drive.constant_time_press_constant()))+'\n')
-    lines.append("11) "+str(statistic(drive.constant_time_release_constant()))+'\n')
-    lines.append("12) "+str(statistic(drive.extreme_points_in_constant()))+'\n')
-    lines.append("13) "+str(statistic(drive.time_above_speedLimit()))+'\n')
-    lines.append("14) "+str(statistic(drive.speed_above_speedLimit()))+'\n')
-    lines.append("15) "+str(statistic(drive.speed_below_speedLimit()))+'\n')
+    features = {}
+    features[Feature.AccelerationsFromZero] = statistic(drive.speedAccelerationsFromZero())
+    features[Feature.DeccelerationsToZero] = statistic(drive.speedDeccelerationsToZero())
+    features[Feature.VarianceConstantSpeed] = statistic(drive.distancesFromAvgConstantSpeed())
+    features[Feature.DistancesFromRegressionAcceleration] = statistic(drive.distancesFromRegressionSpeedAcceleration())
+    features[Feature.DistancesFromRegressionDecceleration] = statistic(drive.distancesFromRegressionSpeedDecceleration())
+    features[Feature.PearsonsAcceleration] = statistic(drive.pearsonsAcceleration())
+    features[Feature.PearsonsDecceleration] = statistic(drive.pearsonsDecceleration())
+    features[Feature.ConstantExtremePedal] = statistic(drive.constantExtremePedal())
+    features[Feature.ConstantPressPedalInclines] = statistic(drive.constantPressPedalInclines())
+    features[Feature.ConstantReleasePedalInclines] = statistic(drive.constantReleasePedalInclines())
+    features[Feature.ConstantPressPedalTime] = statistic(drive.constantPressPedalTime())
+    #features[Feature.ConstantAboveSpeedLimitTime] = statistic(drive.constantAboveSpeedLimitTime())
+    #features[Feature.ConstantAboveSpeedLimitSpeeed] = statistic(drive.constantAboveSpeedLimitSpeeed())
+    #features[Feature.ConstantBelowSpeedLimitSpeeed] = statistic(drive.constantBelowSpeedLimitSpeeed())
 
-    file.writelines(lines)
-    file.close()
-def createGrafe(cursor , driveId):
+    return features
+
+def createGraph(cursor , driveId):
     drive = Drive(cursor , driveId )
     drive.createSpeedGraph(drive.id+"speeds")
     drive.createSpeedSegmentGraph(drive.id+"segments")
     drive.createPedalGraph(drive.id +"pedals")
-    drive.createMaxPedalGraph(drive.id +"Maxpedals")

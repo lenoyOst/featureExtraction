@@ -14,7 +14,9 @@ def loopExtract(driveID , min):
     )
     cursor = connection.cursor()
     while(not stop):
-        features.extract(cursor , driveID)
+        f = features.extract(cursor , driveID)
+        for key in f:
+            print(f[key])
         sleep(min*60)
        
         cursor.execute("SELECT end_time FROM drive WHERE drive_id = "+driveID)
