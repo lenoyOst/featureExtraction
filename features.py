@@ -204,6 +204,8 @@ class Drive:
             if (any(row[0] >= segment.startTime and row[0] <= segment.endTime for segment in constant)):
                 if(row[5] is None):
                     ans = (row[0], getSpeedLimit(convertGpsDateTo_latlon(row[1],row[2],row[3],row[4])))
+                    if(ans[1] is None):
+                        ans = (ans[0], -1)
                     cursor.execute("UPDATE drive_characteristics SET speed_limit = "+ str(ans[1])+" WHERE drive_characteristics_id = "+str(row[6]))
                 else:
                     ans = (row[0], row[5])
@@ -213,41 +215,36 @@ class Drive:
             connection.commit()
             return ans
         self.speedLimitData = list(map(lambda row : f(row) , result))
-        #for i in range(len(self.speedLimitData)):
-        #    cursor.execute("SELECT drive_characteristics_id, speed_limit FROM drive_characteristics LIMIT 1 OFFSET "+str(i))
-        #    result = cursor.fetchall()
-        #    if(result[0][1] is None):
-        #        cursor.execute("UPDATE drive_characteristics SET speed_limit = "+ str(self.speedLimitData[i][1])+" WHERE drive_characteristics_id = "+str(result[0][0]))
 
     #graphs
-    def createSpeedGraph(self, name):
+    def createGraph(self):
         wb = Workbook()
-        s = wb.add_sheet(name)
+        
+        #speed
+        s = wb.add_sheet("speeds")
         for i in range(len(self.speedData)):
             s.write(i, 1, self.speedData[i][1])
             s.write(i, 0, self.speedData[i][0])
-        wb.save(name+'.xls')
-    def createSpeedSegmentGraph(self, name):
-        wb = Workbook()
-        s = wb.add_sheet(name)
+        
+        #segments
+        s = wb.add_sheet("segments")
         for i in range(len(self.speedSegments)):
             s.write(i, 1, self.speedSegments[i].startSpeed)
             s.write(i, 0, self.speedSegments[i].startTime)
-        wb.save(name+'.xls')
-    def createPedalGraph(self, name):
-        wb = Workbook()
-        s = wb.add_sheet(name)
+
+        #pedals
+        s = wb.add_sheet("pedals")
         for i in range(len(self.pedalData)):
             s.write(i, 1, self.pedalData[i][1])
             s.write(i, 0, self.pedalData[i][0])
-        wb.save(name+'.xls')
-    def createLimitGraph(self, name):
-        wb = Workbook()
-        s = wb.add_sheet(name)
+        
+        #limits
+        s = wb.add_sheet("limits")
         for i in range(len(self.speedLimitData)):
             s.write(i, 1, self.speedLimitData[i][1])
             s.write(i, 0, self.speedLimitData[i][0])
-        wb.save(name+'.xls')
+        
+        wb.save(self.id+'.xls')
     #speed
     def speedAccelerationsFromZero(self):        
         accelerations = list(filter(lambda segment: segment.startSpeed < 10 and segment.isAcceleration(), self.speedSegments))
@@ -369,7 +366,11 @@ class Drive:
         constant = list(filter(lambda segment : segment.isConstant() and segment.startSpeed > 10 and segment.endSpeed > 10,self.speedSegments))
         timeAboveSpeedLimit = []
         for segment in constant:
-            speedLimit = mostCommonSpeedLimit(self.speedLimitData[segment.startIndex:segment.endIndex])
+            speeds = list(filter(lambda point: point[1] != -1, self.speedLimitData[segment.startIndex:segment.endIndex]))
+            if(len(speeds) == 0):
+                continue
+            speedLimit = mostCommonSpeedLimit(speeds)
+            
             time = 0
             for i in range(segment.startIndex , segment.endIndex):
                 if( speedLimit < self.speedData[i][1]):
@@ -380,7 +381,10 @@ class Drive:
         constant = list(filter(lambda segment : segment.isConstant()  and segment.startSpeed > 10 and segment.endSpeed > 10,self.speedSegments))
         speedAboveSpeedLimit = []
         for segment in constant:
-            speedLimit = mostCommonSpeedLimit(self.speedLimitData[segment.startIndex:segment.endIndex])
+            speeds = list(filter(lambda point:  point[1] != -1, self.speedLimitData[segment.startIndex:segment.endIndex]))
+            if(len(speeds) == 0):
+                continue
+            speedLimit = mostCommonSpeedLimit(speeds)
             for i in range(segment.startIndex , segment.endIndex):
                 if(speedLimit < self.speedData[i][1]):
                     speedAboveSpeedLimit.append(self.speedData[i][1] / speedLimit)
@@ -389,18 +393,22 @@ class Drive:
         constant = list(filter(lambda segment : segment.isConstant() and segment.startSpeed > 10 and segment.endSpeed > 10,self.speedSegments))
         speedBelowSpeedLimit = []
         for segment in constant:
-            speedLimit = mostCommonSpeedLimit(self.speedLimitData[segment.startIndex:segment.endIndex])
+            speeds = list(filter(lambda point: point[1] != -1, self.speedLimitData[segment.startIndex:segment.endIndex]))
+            if(len(speeds) == 0):
+                continue
+            speedLimit = mostCommonSpeedLimit(speeds)
             for i in range(segment.startIndex , segment.endIndex):
                 if(speedLimit > self.speedData[i][1]):
                     speedBelowSpeedLimit.append(self.speedData[i][1] / speedLimit)
         return speedBelowSpeedLimit 
 
 def statistic(arr):
-    count = len(arr)
-    if(count == 0):
+    try:
+        count = len(arr)
+        avg = sum(arr)/count
+        return [avg, statistics.variance(arr), statistics.median(arr)]
+    except:
         return None
-    avg = sum(arr)/count
-    return [avg, statistics.variance(arr), statistics.median(arr)]
 
 def extract(cursor , driveId, connection):
     drive = Drive(cursor , driveId, connection)
@@ -425,7 +433,4 @@ def extract(cursor , driveId, connection):
 
 def createGraph(cursor , driveId, connection):
     drive = Drive(cursor , driveId, connection)
-    drive.createSpeedGraph(drive.id+"speeds")
-    drive.createSpeedSegmentGraph(drive.id+"segments")
-    drive.createPedalGraph(drive.id +"pedals")
-    drive.createLimitGraph(drive.id +"limit")
+    drive.createGraph()
