@@ -6,15 +6,18 @@ from time import sleep
 def loopExtract(driveID , min):
     stop = False
     connection = mysql.connector.connect(
-        host = "84.229.64.49",
-        user = "Omer",
+        #host = "84.229.65.93",
+        #host = "84.94.84.90",
+        host = "127.0.0.1",
+        #user = "Omer",
+        user = "root",
         password = "OMEome0707",
         database = "ottomate",
         auth_plugin='mysql_native_password'
     )
     cursor = connection.cursor()
     while(not stop):
-        f = features.extract(cursor , driveID)
+        f = features.extract(cursor , driveID, connection)
         for key in f:
             print(f[key])
         sleep(min*60)
