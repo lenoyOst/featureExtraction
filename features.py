@@ -245,6 +245,7 @@ class Drive:
             s.write(i, 0, self.speedLimitData[i][0])
         
         wb.save(self.id+'.xls')
+    
     #speed
     def speedAccelerationsFromZero(self):        
         accelerations = list(filter(lambda segment: segment.startSpeed < 10 and segment.isAcceleration(), self.speedSegments))
@@ -302,6 +303,7 @@ class Drive:
             else:
                 pearson.append(abs(scipy.stats.pearsonr(x, y)[0]))
         return pearson    
+    
     #pedal 
     def constantExtremePedal(self):
         constants = list(filter(lambda segment: segment.isConstant() and segment.startSpeed > 10 and segment.endSpeed > 10, self.speedSegments))
@@ -361,12 +363,13 @@ class Drive:
                         timeConstant.append(extremePoints[j][0] - extremePoints[j-1][0])
                     j+=1
         return timeConstant
+    
     #speedLimit
     def constantAboveSpeedLimitTime(self):
         constant = list(filter(lambda segment : segment.isConstant() and segment.startSpeed > 10 and segment.endSpeed > 10,self.speedSegments))
         timeAboveSpeedLimit = []
         for segment in constant:
-            speeds = list(filter(lambda point: point[1] != -1, self.speedLimitData[segment.startIndex:segment.endIndex]))
+            speeds = list(filter(lambda point: point[1] > 0, self.speedLimitData[segment.startIndex:segment.endIndex]))
             if(len(speeds) == 0):
                 continue
             speedLimit = mostCommonSpeedLimit(speeds)
@@ -381,34 +384,44 @@ class Drive:
         constant = list(filter(lambda segment : segment.isConstant()  and segment.startSpeed > 10 and segment.endSpeed > 10,self.speedSegments))
         speedAboveSpeedLimit = []
         for segment in constant:
-            speeds = list(filter(lambda point:  point[1] != -1, self.speedLimitData[segment.startIndex:segment.endIndex]))
+            speeds = list(filter(lambda point:  point[1] > 0, self.speedLimitData[segment.startIndex:segment.endIndex]))
             if(len(speeds) == 0):
                 continue
             speedLimit = mostCommonSpeedLimit(speeds)
+            arr = []
             for i in range(segment.startIndex , segment.endIndex):
                 if(speedLimit < self.speedData[i][1]):
-                    speedAboveSpeedLimit.append(self.speedData[i][1] / speedLimit)
+                    arr.append(self.speedData[i][1] / speedLimit * 100)
+            if(len(arr) != 0):
+                speedAboveSpeedLimit.append(sum(arr)/len(arr))
         return speedAboveSpeedLimit   
     def constantBelowSpeedLimitSpeeed(self):
         constant = list(filter(lambda segment : segment.isConstant() and segment.startSpeed > 10 and segment.endSpeed > 10,self.speedSegments))
         speedBelowSpeedLimit = []
         for segment in constant:
-            speeds = list(filter(lambda point: point[1] != -1, self.speedLimitData[segment.startIndex:segment.endIndex]))
+            speeds = list(filter(lambda point: point[1] > 0, self.speedLimitData[segment.startIndex:segment.endIndex]))
             if(len(speeds) == 0):
                 continue
             speedLimit = mostCommonSpeedLimit(speeds)
+            arr = []
             for i in range(segment.startIndex , segment.endIndex):
                 if(speedLimit > self.speedData[i][1]):
-                    speedBelowSpeedLimit.append(self.speedData[i][1] / speedLimit)
-        return speedBelowSpeedLimit 
+                    arr.append(self.speedData[i][1] / speedLimit*100)
+            if(len(arr) != 0):
+                speedBelowSpeedLimit.append(sum(arr)/len(arr))
+            return speedBelowSpeedLimit 
 
 def statistic(arr):
     try:
         count = len(arr)
         avg = sum(arr)/count
-        return [avg, statistics.variance(arr), statistics.median(arr)]
+        if(len(arr) == 1):
+            variance = 0
+        else:
+            variance = statistics.variance(arr)
+        return [avg, variance, statistics.median(arr)]
     except:
-        return None
+        return [0,0,0]
 
 def extract(cursor , driveId, connection):
     drive = Drive(cursor , driveId, connection)

@@ -6,11 +6,11 @@ from time import sleep
 def loopExtract(driveID , min):
     stop = False
     connection = mysql.connector.connect(
-        #host = "84.229.65.93",
+        host = "84.229.65.93",
         #host = "84.94.84.90",
-        host = "127.0.0.1",
-        #user = "Omer",
-        user = "root",
+        #host = "127.0.0.1",
+        user = "Omer",
+        #user = "root",
         password = "OMEome0707",
         database = "ottomate",
         auth_plugin='mysql_native_password'
@@ -31,7 +31,7 @@ def loopExtract(driveID , min):
         stop = result[0][0] is not None
         index+=1
 def main(argv):
-    #argv : [driveID][time in minuets]
+    #USE: [driveID] [time in minuets]
     loopExtract(argv[0] ,int(argv[1]))
 
 if(__name__ == "__main__"):
