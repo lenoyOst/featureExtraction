@@ -1,6 +1,8 @@
 import features
 import mysql
 import sys
+import math
+import datetime
 
 def main(argv):
     connection = mysql.connector.connect(
@@ -15,7 +17,14 @@ def main(argv):
         )
     cursor = connection.cursor()
 
-    features.createGraph(cursor, argv[0], connection)
+    cursor.execute('SELECT start_time FROM drive WHERE drive_id = '+argv[0])
+    startTime = cursor.fetchall()[0][0]
+    cursor.execute('SELECT MAX(time) FROM drive_characteristics WHERE drive_id = '+argv[0])
+    endTime = cursor.fetchall()[0][0]
+    endTime = datetime.datetime.strptime(endTime, "%Y-%m-%d %H:%M:%S.%f")
+
+    delta = math.ceil((endTime-startTime).total_seconds() / 60)
+    features.createGraph(cursor, argv[0], connection, delta)
 
 if(__name__ == "__main__"):
     if(len(sys.argv) != 2):

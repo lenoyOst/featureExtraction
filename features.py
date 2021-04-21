@@ -9,6 +9,7 @@ import scipy.stats
 import numpy
 import requests
 from enum import Enum
+import os
 
 def convertGpsDateTo_latlon(latGPS, latDirection, lonGPS, lonDirection):
     if((latGPS is None) or (latDirection is None) or (lonGPS is None) or (lonDirection is None)):
@@ -133,23 +134,28 @@ class Segment:
         return (self.endTime, self.endSpeed)
 
 class Drive:
-    def __init__(self, cursor , driveId, connection):
+    def __init__(self, cursor , driveId, connection, time):
         self.id = driveId
-        #getting the speedData array from the DB (setting the correct time stemps)
         cursor.execute("SELECT start_time FROM drive WHERE drive_id = "+self.id)
         result = cursor.fetchall()
         startTime = result[0][0]
-        cursor.execute("SELECT time, speed FROM drive_characteristics WHERE drive_id = "+self.id)
+        endTime = startTime +datetime.timedelta(minutes=time)
+        cursor.execute("SELECT MAX(drive_characteristics_id) FROM drive_characteristics WHERE drive_id = "+self.id+" and time < '"+datetime.datetime.strftime(endTime, "%Y-%m-%d %H:%M:%S")+"'")
+        result = cursor.fetchall()
+        self.max_id = str(result[0][0])
+        #getting the speedData array from the DB (setting the correct time stemps)
+        cursor.execute("SELECT time, speed FROM drive_characteristics WHERE drive_id = "+self.id+" and drive_characteristics_id < "+self.max_id)
         result = cursor.fetchall()
         self.speedData = list(map(lambda couple: (((datetime.datetime.strptime(couple[0], "%Y-%m-%d %H:%M:%S.%f") - startTime).total_seconds(), couple[1])), result))
         for i in range(1, len(self.speedData) -1):
             if(self.speedData[i][1] == 0 and self.speedData[i+1][1] >7 and self.speedData[i-1][1] >7):
                 self.speedData[i] = (self.speedData[i][0], self.speedData[i-1][1])
-        timeDiffrendce = 0.0
+        timeDifference = 0.0
         for i in range (len(self.speedData)-1):
-            timeDiffrendce+=(self.speedData[i+1][0] - self.speedData[i][0])
-        timeDiffrendce/=(len(self.speedData)-1)
-        self.skip = round(0.45/timeDiffrendce)
+            timeDifference+=(self.speedData[i+1][0] - self.speedData[i][0])
+        timeDifference/=(len(self.speedData)-1)
+        self.skip = round(0.45/timeDifference)
+
         #calculating the constant/acceleration/decceleration segments 
         points = []
         for i in range(self.skip, len(self.speedData) - self.skip , self.skip):
@@ -187,16 +193,16 @@ class Drive:
             self.speedSegments.append(cSegment) 
 
         #getting the pedalData array from the DB (setting the correct time stemps)
-        cursor.execute("SELECT MIN(pedal_degree) FROM drive_characteristics WHERE drive_id = "+self.id)
+        cursor.execute("SELECT MIN(pedal_degree) FROM drive_characteristics WHERE drive_id = "+self.id+" and drive_characteristics_id < "+self.max_id)
         result = cursor.fetchall()
         minPedal = result[0][0]
 
-        cursor.execute("SELECT time, pedal_degree FROM drive_characteristics WHERE drive_id = "+self.id)
+        cursor.execute("SELECT time, pedal_degree FROM drive_characteristics WHERE drive_id = "+self.id+" and drive_characteristics_id < "+self.max_id)
         result = cursor.fetchall()
         self.pedalData = list(map(lambda couple: (((datetime.datetime.strptime(couple[0], "%Y-%m-%d %H:%M:%S.%f") - startTime).total_seconds(), couple[1] - minPedal)), result))
         
         #speedLimit
-        cursor.execute("SELECT time, lat , latD , lon , lonD, speed_limit, drive_characteristics_id FROM drive_characteristics WHERE drive_id = "+self.id) 
+        cursor.execute("SELECT time, lat , latD , lon , lonD, speed_limit, drive_characteristics_id FROM drive_characteristics WHERE drive_id = "+self.id+" and drive_characteristics_id < "+self.max_id) 
         result = cursor.fetchall()
         result = list(map(lambda row : ((datetime.datetime.strptime(row[0], "%Y-%m-%d %H:%M:%S.%f") - startTime).total_seconds(), row[1],row[2],row[3],row[4], row[5], row[6]) , result))
         constant = list(filter(lambda segment: segment.isConstant() and segment.startSpeed > 10 and segment.endSpeed > 10, self.speedSegments))
@@ -218,6 +224,9 @@ class Drive:
 
     #graphs
     def createGraph(self):
+        if not os.path.exists(self.id):
+            os.mkdir(self.id)
+
         wb = Workbook()
         
         #speed
@@ -244,7 +253,7 @@ class Drive:
             s.write(i, 1, self.speedLimitData[i][1])
             s.write(i, 0, self.speedLimitData[i][0])
         
-        wb.save('graph/'+self.id+'.xls')
+        wb.save(self.id+'/'+self.id+'.xls')
     
     #speed
     def speedAccelerationsFromZero(self):        
@@ -423,8 +432,8 @@ def statistic(arr):
     except:
         return [0,0,0]
 
-def extract(cursor , driveId, connection):
-    drive = Drive(cursor , driveId, connection)
+def extract(cursor , driveId, connection, time):
+    drive = Drive(cursor , driveId, connection, time)
 
     features = {}
     features[Feature.AccelerationsFromZero] = statistic(drive.speedAccelerationsFromZero())
@@ -442,8 +451,8 @@ def extract(cursor , driveId, connection):
     features[Feature.ConstantAboveSpeedLimitSpeeed] = statistic(drive.constantAboveSpeedLimitSpeeed())
     features[Feature.ConstantBelowSpeedLimitSpeeed] = statistic(drive.constantBelowSpeedLimitSpeeed())
 
-    return features
+    return int(drive.max_id), features
 
-def createGraph(cursor , driveId, connection):
-    drive = Drive(cursor , driveId, connection)
+def createGraph(cursor , driveId, connection, time):
+    drive = Drive(cursor , driveId, connection, time)
     drive.createGraph()
