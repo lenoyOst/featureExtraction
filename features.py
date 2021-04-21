@@ -104,7 +104,7 @@ class Segment:
         self.incline = ((endSpeed - startSpeed) / 3.6) / (endTime - startTime)
         if(driveType == 'n'):
             if(startSpeed == 0):
-                if(endSpeed < 5):
+                if(endSpeed < 10):
                     self.driveType = 'c'
                 else:
                     self.driveType = 'a'
@@ -144,16 +144,16 @@ class Drive:
         self.speedData = list(map(lambda couple: (((datetime.datetime.strptime(couple[0], "%Y-%m-%d %H:%M:%S.%f") - startTime).total_seconds(), couple[1])), result))
         for i in range(1, len(self.speedData) -1):
             if(self.speedData[i][1] == 0 and self.speedData[i+1][1] >7 and self.speedData[i-1][1] >7):
-                self.speedData[i] = (self.speedData[i-1][0], self.speedData[i-1][1])
-        timeDifrrendce = 0.0
-        for i in range (0 , len(self.speedData)-1):
-            timeDifrrendce+=(self.speedData[i+1][0] - self.speedData[i][0])
-        timeDifrrendce/=(len(self.speedData)-1)
-        self.skip = round(0.45/timeDifrrendce)
+                self.speedData[i] = (self.speedData[i][0], self.speedData[i-1][1])
+        timeDiffrendce = 0.0
+        for i in range (len(self.speedData)-1):
+            timeDiffrendce+=(self.speedData[i+1][0] - self.speedData[i][0])
+        timeDiffrendce/=(len(self.speedData)-1)
+        self.skip = round(0.45/timeDiffrendce)
         #calculating the constant/acceleration/decceleration segments 
         points = []
-        for i in range(1, len(self.speedData) - self.skip , self.skip):
-            if((self.speedData[i][1] - self.speedData[i-1][1]) * (self.speedData[i+1][1] - self.speedData[i][1]) <= 0):
+        for i in range(self.skip, len(self.speedData) - self.skip , self.skip):
+            if((self.speedData[i][1] - self.speedData[i-self.skip][1]) * (self.speedData[i+self.skip][1] - self.speedData[i][1]) <= 0):
                 points.append((self.speedData[i][0], self.speedData[i][1]))
         
         c = 0.8
