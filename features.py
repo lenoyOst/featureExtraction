@@ -244,7 +244,7 @@ class Drive:
             s.write(i, 1, self.speedLimitData[i][1])
             s.write(i, 0, self.speedLimitData[i][0])
         
-        wb.save(self.id+'.xls')
+        wb.save('graph/'+self.id+'.xls')
     
     #speed
     def speedAccelerationsFromZero(self):        
