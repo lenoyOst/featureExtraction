@@ -1,10 +1,93 @@
 import features
 import featurExtraction
 import statistics
+import math
+import mysql
 
+def getDriveIDs(customer_car_id):
+    connection = mysql.connector.connect(
+            #host = "84.229.65.93",
+            #host = "84.94.84.90",
+            host = "127.0.0.1",
+            #user = "Omer",
+            user = "root",
+            password = "OMEome0707",
+            database = "ottomate",
+            auth_plugin='mysql_native_password'
+        )
+    cursor = connection.cursor()
+
+    cursor.execute("SELECT drive_id FROM drive WHERE customer_car_id = "+str(customer_car_id))
+    result = cursor.fetchall()
+
+    result = list(map(lambda  row: row[0], result))
+    return result
+
+def calc(f):
+    x = 0
+    x += f[0][0]/6
+    x += f[0][1]/6
+    x += f[0][2]/6
+    x += f[1][0]/6
+    x += f[1][1]/6
+    x += f[1][2]/6
+
+    return x
+
+class Machine2():
+    def __init__(self, lst):
+        
+        self.median = sum(lst)/len(lst)
+        #self.median = statistics.median(lst)
+        #self.variance = math.sqrt(statistics.variance(lst))
+        
+        self.varianceL = 0
+        self.varianceR = 0
+        nR = 0
+        nL = 0
+        for value in lst:
+            if(value >= self.median):
+                nR += 1
+                self.varianceR += ((value - self.median)**2)
+            if(value <= self.median):
+                nL += 1
+                self.varianceL += ((self.median - value)**2)
+        if(nR == 0):
+            self.varianceR = 0
+        else:
+            self.varianceR = math.sqrt(self.varianceR/nR)
+
+        if(nL == 0):
+            self.varianceL = 0
+        else:
+            self.varianceL = math.sqrt(self.varianceL/nL)
+
+        minV = min(lst)
+        maxV = max(lst)
+
+        self.maxL = self.median - self.varianceL
+        self.minR = self.median + self.varianceR      
+        self.minL = minV - (self.maxL - minV)
+        self.maxR = maxV + (maxV - self.minR)
+
+    def detect(self, value):
+        if(value >= self.maxL and value <= self.minR):
+            return 100  
+
+        if(value < self.maxL):
+            if(self.minL == self.maxL):
+                return -1 
+            return max(100*(value-self.minL)/(self.maxL-self.minL), 0)
+        elif(value > self.minR):
+            if(self.minR == self.maxR):
+                return -1  
+            return max(100 - 100*(value - self.minR)/(self.maxR-self.minR), 0)
+        else:
+            return -1
 class Machine():
     def __init__(self, lst):
-        self.median = statistics.median(lst)
+        self.median = sum(lst)/len(lst)
+        #self.median = statistics.median(lst)
         minV = min(lst)
         maxV = max(lst)
         self.minV = minV - (self.median - minV)
@@ -12,9 +95,9 @@ class Machine():
     def detect(self, value):
         if(self.median == self.maxV or self.median == self.minV):
             if(value == self.median):
-                return 100
+                return 101
             else:
-                return 0
+                return -1
         if(value < self.median):
             return max(100*(value-self.minV)/(self.median-self.minV), 0)
         else:
@@ -29,7 +112,7 @@ class Identifier():
                 arr = []
                 for k in range(len(fs)):
                     arr.append(fs[k][s][j])
-                machine = Machine(arr)
+                machine = Machine2(arr)
                 row.append(machine)
             self.total.append(row)              
     def detect(self, f):
@@ -43,24 +126,65 @@ class Identifier():
             i+=1
         return result
 
-mayas = [98, 100, 101, 103, 105, 106, 112, 113]
-omers = [93, 94, 96]
-rans = [109, 111]
+test = []
 
-maya = 107
-omer = 95
-ran = 110
+drives = getDriveIDs(int(input("enter:   ")))
 
-fs = []
-for drive in mayas:
-    fs.extend(featurExtraction.loopExtract(str(drive), 5))
+if(len(drives) != 1):
+    for i in range(len(drives)):
 
-lst = featurExtraction.loopExtract(str(maya), 5)
-lst.reverse()
-f = lst[0]
+        
+        arr = []
+        if(i == 0):
+            arr = drives[i+1:len(drives)]
+        elif(i == len(drives) - 1):
+            arr = drives[0:i]
+        else:
+            arr = drives[0:i]
+            arr.extend(drives[i+1:len(drives)])
+    
+        fs = []
+        for d in arr:
+            a = featurExtraction.loopExtract(str(d), 5)
+            a.reverse()
+            fs.extend(a)
+        identifier = Identifier(fs)
 
-identifier = Identifier(fs)
-result = identifier.detect(f)
+        f = featurExtraction.loopExtract(str(drives[i]), 5)
+        f.reverse()
+        f = f[0]
 
-for i in range(14):
-    print(result[i])
+        test.append(calc(identifier.detect(f)))
+        #test.append(identifier.detect(f)[1][1])
+
+    print(test)
+
+if(True):
+    for drive in drives:
+        a = featurExtraction.loopExtract(str(drive), 5)
+        a.reverse()
+        fs.append(a[0])
+
+    identifier = Identifier(fs)
+
+    drives = getDriveIDs(int(input("enter:   ")))
+
+    test = []
+    for drive in drives:
+        a = featurExtraction.loopExtract(str(drive), 5)
+        a.reverse()
+        f = a[0]
+        test.append(identifier.detect(f)[0][0])
+
+    print(test)
+
+    drives = getDriveIDs(int(input("enter:   ")))
+
+    test = []
+    for drive in drives:
+        a = featurExtraction.loopExtract(str(drive), 5)
+        a.reverse()
+        f = a[0]
+        test.append(identifier.detect(f)[0][1])
+
+    print(test)

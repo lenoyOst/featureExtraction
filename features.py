@@ -224,8 +224,8 @@ class Drive:
 
     #graphs
     def createGraph(self):
-        if not os.path.exists(self.id):
-            os.mkdir(self.id)
+        if not os.path.exists('graphs'):
+            os.mkdir('graphs')
 
         wb = Workbook()
         
@@ -253,7 +253,7 @@ class Drive:
             s.write(i, 1, self.speedLimitData[i][1])
             s.write(i, 0, self.speedLimitData[i][0])
         
-        wb.save(self.id+'/'+self.id+'.xls')
+        wb.save('graphs/'+self.id+'.xls')
     
     #speed
     def speedAccelerationsFromZero(self):        
@@ -400,7 +400,7 @@ class Drive:
             arr = []
             for i in range(segment.startIndex , segment.endIndex):
                 if(speedLimit < self.speedData[i][1]):
-                    arr.append(self.speedData[i][1] / speedLimit * 100)
+                    arr.append(self.speedData[i][1] / speedLimit * 100 - 100)
             if(len(arr) != 0):
                 speedAboveSpeedLimit.append(sum(arr)/len(arr))
         return speedAboveSpeedLimit   
@@ -430,7 +430,7 @@ def statistic(arr):
             variance = statistics.variance(arr)
         return [avg, variance, statistics.median(arr)]
     except:
-        return [0,0,0]
+        return [0.0,0.0,0.0]
 
 def extract(cursor , driveId, connection, time):
     drive = Drive(cursor , driveId, connection, time)

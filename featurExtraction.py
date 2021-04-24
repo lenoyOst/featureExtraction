@@ -5,10 +5,11 @@ from time import sleep
 import os
 import shutil
 import datetime
+import csv
 
-maya = [98, 100, 101, 103, 105, 106, 112, 113]
-omer = [93, 94, 96]
-ran = [109, 111]
+omer = [93, 94, 95, 96]
+ran = [109,110, 111]
+daniel = [128]
 
 acA, acV, acM = [], [], []
 def loopExtract(driveID , min):
@@ -25,20 +26,28 @@ def loopExtract(driveID , min):
     )
     cursor = connection.cursor()
     index = 1
-    #path = driveID
-    #if not os.path.exists(path):
-        #os.mkdir(path)
-    
+
     fs = []        
     while(True):
-        #file = open(path+'/'+str(index)+'.txt', mode = 'w')
-        max_id, f = features.extract(cursor , driveID, connection, index*min + 5)
-
+        if(not os.path.exists('cache/'+driveID+'_'+str(index)+'.csv')):
+            max_id, f = features.extract(cursor , driveID, connection, index*min + 5)
+            with open('cache/'+driveID+'_'+str(index)+'.csv', 'w', newline='') as file:
+                writer = csv.writer(file)
+                writer.writerow([max_id])
+                for key in f:
+                    writer.writerow(f[key])
+        else:
+            with open('cache/'+driveID+'_'+str(index)+'.csv', 'r') as f:
+                lis = [line.split(',') for line in f]
+                lis = list(map(lambda row: list(map(lambda x: float(''.join(list(filter(lambda c: c!= '\n', x)))), row)), lis))
+                max_id = int(lis[0][0])
+                f = {}
+                i = 1
+                for key in features.Feature:
+                    f[key] = lis[i]
+                    i+=1
         fs.append(f)
-        #for key in f:
-            #file.write(str(f[key])+'\n')
-        #file.close()
-       
+
         cursor.execute("SELECT MAX(drive_characteristics_id) FROM drive_characteristics WHERE drive_id ="+driveID)
         result = cursor.fetchall()
         last_id = result[0][0]
@@ -53,17 +62,10 @@ def main(argv):
     loopExtract(argv[0] ,int(argv[1]))
 
 if(__name__ == "__main__"):
-    for drive in omer:
+    for drive in daniel:
         main([str(drive), 5])
-    
-    print(acA)
-    print()
-    print(acV)
-    print()
-    print(acM)
+
     if(len(sys.argv) != 3):
         print("USE: [driveID] [time in minuets]")
     else:
         main(sys.argv[1:])
-
-    
