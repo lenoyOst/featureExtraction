@@ -100,8 +100,6 @@ class Identifier2():
             test.append( [[],[],[]])
         
         drives = getDriveIDs(customer_car_id)
-        drives = drives[1:len(drives)]
-
         for i in range(len(drives)):
             arr = []
             if(i == 0):
@@ -111,12 +109,11 @@ class Identifier2():
             else:
                 arr = drives[0:i]
                 arr.extend(drives[i+1:len(drives)])
-    
             fs = []
             for d in arr:
                 a = featurExtraction.loopExtract(str(d), 5)
                 a.reverse()
-                fs.append(a[0])
+                fs.extend(a)
             identifier = Identifier(fs)
 
             f = featurExtraction.loopExtract(str(drives[i]), 5)
@@ -127,14 +124,26 @@ class Identifier2():
             for j in range(14):
                 for k in range(3):
                     test[j][k].append(result[j][k])
-        
-        self.isToLearn = list(map(lambda row: list(map(lambda arr: (sum(map(lambda value: value >= 80 , arr)) / len(arr)) > 0.65, row)),test))
-
+        self.isToLearn = list(map(lambda row: list(map(lambda arr: (sum(map(lambda value: value >= 85 , arr)) / len(arr)) > 0.65, row)),test))
+        self.weight =   [[1, 0, 1]
+                        ,[1, 1, 1]
+                        ,[0, 0, 0.5]
+                        ,[0.5, 0, 0.5]
+                        ,[0, 0, 0]
+                        ,[0, 0, 0]
+                        ,[1, 0, 0]
+                        ,[0, 0, 0]
+                        ,[0, 0, 0]
+                        ,[0, 0, 0]
+                        ,[0, 0, 0]
+                        ,[0, 0, 0]
+                        ,[0, 0, 0]
+                        ,[0, 0, 0]]
         fs = []
         for drive in drives:
             a = featurExtraction.loopExtract(str(drive), 5)
             a.reverse()
-            fs.append(a[0])
+            fs.extend(a)
 
         self.total = []
         for s in features.Feature:
@@ -161,8 +170,8 @@ class Identifier2():
         for i in range(14):
             for j in range(3):
                 if(self.isToLearn[i][j]):
-                    answer += result[i][j]
-                    count += 1
+                    answer += result[i][j] * self.weight[i][j]
+                    count += self.weight[i][j]
         return answer / count
 class Identifier():
     def __init__(self, fs):

@@ -65,20 +65,20 @@ def mostCommonSpeedLimit(l):
     return sorted(counter, key = counter.get, reverse=True)[0]
 
 class Feature(Enum):
-    AccelerationsFromZero = 1
-    DeccelerationsToZero = 2
-    VarianceConstantSpeed = 3
-    DistancesFromRegressionAcceleration = 4
-    DistancesFromRegressionDecceleration = 5
-    PearsonsAcceleration = 6
-    PearsonsDecceleration = 7
-    ConstantExtremePedal = 8
-    ConstantPressPedalInclines = 9
-    ConstantReleasePedalInclines = 10
-    ConstantPressPedalTime = 11
-    ConstantAboveSpeedLimitTime = 12
-    ConstantAboveSpeedLimitSpeeed = 13
-    ConstantBelowSpeedLimitSpeeed = 14
+    AccelerationsFromZero = 1 # V
+    DeccelerationsToZero = 2 # V
+    VarianceConstantSpeed = 3 # ~
+    DistancesFromRegressionAcceleration = 4 # ?X
+    DistancesFromRegressionDecceleration = 5 # ?X
+    PearsonsAcceleration = 6 # ?X
+    PearsonsDecceleration = 7 # ?X
+    ConstantExtremePedal = 8 # X
+    ConstantPressPedalInclines = 9 # X
+    ConstantReleasePedalInclines = 10 # X
+    ConstantPressPedalTime = 11 # ?
+    ConstantAboveSpeedLimitTime = 12 # ?
+    ConstantAboveSpeedLimitSpeeed = 13 # ?
+    ConstantBelowSpeedLimitSpeeed = 14 # ?
 
 class Line:
     def __init__(self, points):
