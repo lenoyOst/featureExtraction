@@ -8,7 +8,6 @@ import datetime
 import csv
 
 
-acA, acV, acM = [], [], []
 def loopExtract(driveID , min):
     stop = False
     connection = mysql.connector.connect(
@@ -59,9 +58,6 @@ def main(argv):
     loopExtract(argv[0] ,int(argv[1]))
 
 if(__name__ == "__main__"):
-    for drive in daniel:
-        main([str(drive), 5])
-
     if(len(sys.argv) != 3):
         print("USE: [driveID] [time in minuets]")
     else:
