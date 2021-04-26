@@ -7,9 +7,6 @@ import shutil
 import datetime
 import csv
 
-omer = [93, 94, 95, 96]
-ran = [109,110, 111]
-daniel = [128]
 
 acA, acV, acM = [], [], []
 def loopExtract(driveID , min):
