@@ -64,6 +64,9 @@ def getVariances():
         s.write(i, 0, vriances[i][1])
 
     wb.save('Variances/'+str(customer_car_id)+'.csv')
+
+
+
 def getFe():   
         #21
     with open('data.csv', 'w', newline='') as file:
@@ -75,10 +78,10 @@ def getFe():
                 for name in features.Feature:
                     for j in range(3):
                         fs_sub.append(feature[name][j])
-            fs.append(fs_sub)
-            for drivef in fs:
-                drivef.append('21')
-                writer.writerow(drivef)
+                fs.append(fs_sub)
+        for drivef in fs:
+            drivef.append(21)
+            writer.writerow(drivef)
                 #
         fs=[]
         for drive in getDriveIDs(22):
@@ -87,10 +90,10 @@ def getFe():
                 for name in features.Feature:
                     for j in range(3):
                         fs_sub.append(feature[name][j])
-            fs.append(fs_sub)
-            for drivef in fs:
-                drivef.append('22')
-                writer.writerow(drivef)
+                fs.append(fs_sub)
+        for drivef in fs:
+            drivef.append(22)
+            writer.writerow(drivef)
                 #
         fs=[]
         for drive in getDriveIDs(17):
@@ -99,10 +102,10 @@ def getFe():
                 for name in features.Feature:
                     for j in range(3):
                         fs_sub.append(feature[name][j])
-            fs.append(fs_sub)
-            for drivef in fs:
-                drivef.append('17')
-                writer.writerow(drivef)
+                fs.append(fs_sub)
+        for drivef in fs:
+            drivef.append(17)
+            writer.writerow(drivef)
                 #
         fs=[]
         for drive in getDriveIDs(16):
@@ -111,10 +114,10 @@ def getFe():
                 for name in features.Feature:
                     for j in range(3):
                         fs_sub.append(feature[name][j])
-            fs.append(fs_sub)
-            for drivef in fs:
-                drivef.append('16')
-                writer.writerow(drivef)
+                fs.append(fs_sub)
+        for drivef in fs:
+            drivef.append(16)
+            writer.writerow(drivef)
 
 if(__name__ == "__main__"):
     col_names = []
