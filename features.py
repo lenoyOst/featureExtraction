@@ -318,6 +318,7 @@ class Drive:
         constants = list(filter(lambda segment: segment.isConstant() and segment.startSpeed > 10 and segment.endSpeed > 10, self.speedSegments))
         extremePointsInSegment = []
         for segment in constants:
+            count = 0
             for i in range(segment.startIndex + 1 ,segment.endIndex - 1):
                 count = 0
                 if((self.pedalData[i][1] - self.pedalData[i-1][1]) * (self.pedalData[i+1][1] - self.pedalData[i][1]) <= 0):
