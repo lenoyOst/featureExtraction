@@ -6,6 +6,7 @@ import mysql
 from xlwt import Workbook
 import os
 import csv
+from random import randint
 # Load libraries
 import pandas as pd
 from sklearn.tree import DecisionTreeClassifier # Import Decision Tree Classifier
@@ -15,10 +16,10 @@ from sklearn import metrics #Import scikit-learn metrics module for accuracy cal
 def getDriveIDs(customer_car_id):
     connection = mysql.connector.connect(
             #host = "84.229.65.93",
-            #host = "84.94.84.90",
-            host = "127.0.0.1",
-            #user = "Omer",
-            user = "root",
+            host = "84.94.84.90",
+            #host = "127.0.0.1",
+            user = "Omer",
+            #user = "root",
             password = "OMEome0707",
             database = "ottomate",
             auth_plugin='mysql_native_password'
@@ -37,7 +38,7 @@ def getVariances():
 
     wb = Workbook()
         
-        #21
+        #21 
         
     fs=[]
     customer_car_id=input("enter: " )
@@ -80,23 +81,54 @@ def getData(IDs):
                 drivef.append(ID)
                 writer.writerow(drivef)
 
+def getDataRandomTest(IDs):   
+    with open('dataTrain.csv', 'w', newline='') as file:
+        testNum = -1
+        test=[]
+        writer = csv.writer(file)
+        for ID in IDs:
+            index = 0
+            leng = len(getDriveIDs(ID))
+            testNum = randint(0,leng-1)
+            fs=[]
+            for drive in getDriveIDs(ID):
+                for feature in featurExtraction.loopExtract(str(drive) , 5):
+                    fs_sub=[]
+                    for name in features.Feature:
+                        if(name == features.Feature.driveTime):
+                            fs_sub.append(feature[name][0])
+                        else:
+                            for j in range(3):
+                                fs_sub.append(feature[name][j])
+                    if(testNum == index):
+                        fs_sub.append(ID)
+                        test.append(fs_sub)
+                    else:            
+                        fs.append(fs_sub)
+                index+=1
+            for drivef in fs:
+                drivef.append(ID)
+                writer.writerow(drivef)
+    with open('dataTest.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        for drivef in test:
+            #drivef.append(ID)
+            writer.writerow(drivef)
+
 if(__name__ == "__main__"):
     col_names = []
     feature_cols=[]
-    for i in range(1,43):
+    for i in range(1,38):
         col_names.append(str(i))
         feature_cols.append(str(i))
     col_names.append('label')
     # load dataset
-    getData([16, 22])
-    pima = pd.read_csv("data.csv", header=None, names=col_names)
+    getDataRandomTest([16,17,22,21])
+    pima = pd.read_csv("dataTrain.csv", header=None, names=col_names)
     X_train = pima[feature_cols] # Features
     y_train = pima.label # Target variable
     #X_train, a, y_train, b = train_test_split(X, y, test_size=0, random_state=1) 
-
-    # load dataset
-    getData([24])
-    pima = pd.read_csv("data.csv", header=None, names=col_names)
+    pima = pd.read_csv("dataTest.csv", header=None, names=col_names)
     X_test = pima[feature_cols] # Features
     y_test = pima.label # Target variable
     #c, X_test, d, y_test = train_test_split(X, y, test_size=100, random_state=1) 
