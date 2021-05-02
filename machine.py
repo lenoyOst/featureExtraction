@@ -3,14 +3,14 @@ import featurExtraction
 import statistics
 import math
 import mysql
-
+import random
 def getDriveIDs(customer_car_id):
     connection = mysql.connector.connect(
             #host = "84.229.65.93",
-            host = "84.94.84.90",
-            #host = "127.0.0.1",
-            user = "Omer",
-            #user = "root",
+            #host = "84.94.84.90",
+            host = "127.0.0.1",
+            #user = "Omer",
+            user = "root",
             password = "OMEome0707",
             database = "ottomate",
             auth_plugin='mysql_native_password'
@@ -94,12 +94,14 @@ class Machine():
 
 
 class Identifier2():
-    def __init__(self, customer_car_id):
+    def __init__(self, customer_car_id, remove_index = -1):
         test = []
         for j in range(14):
             test.append( [[],[],[]])
         
         drives = getDriveIDs(customer_car_id)
+        if(remove_index != -1):
+            self.removed = drives.pop(remove_index)
         for i in range(len(drives)):
             arr = []
             if(i == 0):
@@ -266,12 +268,32 @@ def a():
         print(test)
 
 def b():
-    identifier = Identifier2(int(input("enter cutomer_car_id to learn:   ")))
-    drives = getDriveIDs(int(input("enter cutomer_car_id to check:   ")))
-    f = featurExtraction.loopExtract(str(drives[0]), 5)
-    f.reverse()
-    f = f[0]
 
-    print(identifier.detect(f))
+    identifier = Identifier2(16)
+    IDs = [17, 22, 21]
+    for ID in IDs:
+        precents = []
+        drives = getDriveIDs(ID)
+        for drive in drives:
+            f = featurExtraction.loopExtract(str(drive), 5)
+
+            for feature in f:
+                precents.append(identifier.detect(feature))
+        print(ID, sum(precents)/len(precents))
+
+def c():
+
+    drives = getDriveIDs(16)
+    precents = []
+    for i in range(0, len(drives)):
+        identifier = Identifier2(16, i)
+
+        f = featurExtraction.loopExtract(str(identifier.removed), 5)
+
+        for feature in f:
+            precents.append(identifier.detect(feature))
+        
+    print(sum(precents)/len(precents))
 
 b()
+c()
