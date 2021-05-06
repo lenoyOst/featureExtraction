@@ -87,7 +87,7 @@ def getData(IDs):
                 drivef.append(ID)
                 writer.writerow(drivef)
 
-def getDataRandomTest(col_names,feature_cols,IDs):   
+def getDataRandomTest(col_names,IDs):   
     with open('dataTrain.csv', 'w', newline='') as file:
         testNum = -1
         test=[]
@@ -118,8 +118,9 @@ def getDataRandomTest(col_names,feature_cols,IDs):
                 writer.writerow(drivef)
     with open('dataTest.csv', 'w', newline='') as file:
         writer = csv.writer(file)
-        writer.writerow(feature_cols)
+        writer.writerow(col_names)
         for drivef in test:
+            
             writer.writerow(drivef)
 
 
@@ -176,22 +177,28 @@ if(__name__ == "__main__"):
         feature_cols.append(str(i))
     col_names.append('label')
     # load dataset
-    getDataRandomTest(col_names,feature_cols,[16,17,22,21])
+    getDataRandomTest(col_names,[16,17,22,21])
     pima = pd.read_csv("dataTrain.csv", header=None, names=col_names)
     X_train = pima[feature_cols] # Features
     y_train = pima.label # Target variable
-    y_train_nural=np.ravel(y_train)
-    print("###################################################################")
-    print(X_train)
-    print("###################################################################")
-    print(y_train_nural)
-    print("###################################################################")
-    print(type(y_train_nural))
-    print("###################################################################")
+    y_train_list=y_train.tolist()
+    y_train_list.pop(0)
+    y_train_nural=np.ravel(y_train_list)
+    #print(type(y_train))
+    #print("###################################################################")
+    #print(X_train)
+    #print("###################################################################")
+    #print(y_train_nural)
+    #print("###################################################################")
+    #print(type(y_train_nural))
+    #print("###################################################################")
     #X_train, a, y_train, b = train_test_split(X, y, test_size=0, random_state=1) 
     pima = pd.read_csv("dataTest.csv", header=None, names=col_names)
     X_test = pima[feature_cols] # Features
     y_test = pima.label # Target variable
+    y_test_list=y_test.tolist()
+    y_test_list.pop(0)
+    y_test_nural=np.ravel(y_test_list)
     #c, X_test, d, y_test = train_test_split(X, y, test_size=100, random_state=1) 
 
     ##clf = DecisionTreeClassifier(criterion="entropy", max_depth=3)
@@ -203,10 +210,10 @@ if(__name__ == "__main__"):
     ##y_pred = clf.predict(X_test)
     ##print("predict" , y_pred)
 
-    defineNuralNetwork(X_train, X_test, y_train, y_test)
+    defineNuralNetwork(X_train, X_test, y_train_nural, y_test_nural)
 
 
-def funcThatNotWorking()
+#def funcThatNotWorking()
     col_names = []
     feature_cols=[]
     for i in range(1,38):
