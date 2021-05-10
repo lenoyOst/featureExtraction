@@ -22,10 +22,10 @@ import matplotlib.pyplot as plt
 def getDriveIDs(customer_car_id):
     connection = mysql.connector.connect(
             #host = "84.229.65.93",
-            #host = "84.94.84.90",
-            host = "127.0.0.1",
-            #user = "Omer",
-            user = "root",
+            host = "84.94.84.90",
+            #host = "127.0.0.1",
+            user = "Omer",
+            #user = "root",
             password = "OMEome0707",
             database = "ottomate",
             auth_plugin='mysql_native_password'
@@ -33,6 +33,25 @@ def getDriveIDs(customer_car_id):
     cursor = connection.cursor()
 
     cursor.execute("SELECT drive_id FROM drive WHERE customer_car_id = "+str(customer_car_id))
+    result = cursor.fetchall()
+
+    result = list(map(lambda  row: row[0], result))
+    return result
+
+def getCustomerCarIds():
+    connection = mysql.connector.connect(
+            #host = "84.229.65.93",
+            host = "84.94.84.90",
+            #host = "127.0.0.1",
+            user = "Omer",
+            #user = "root",
+            password = "OMEome0707",
+            database = "ottomate",
+            auth_plugin='mysql_native_password'
+        )
+    cursor = connection.cursor()
+
+    cursor.execute("select customer_car_id from customer_car")
     result = cursor.fetchall()
 
     result = list(map(lambda  row: row[0], result))
@@ -120,8 +139,6 @@ def getDataRandomTest(IDs):
         for drivef in test:
             writer.writerow(drivef)
 
-
-
 def defineNuralNetwork(X_train,X_test,y_train,y_test):
     # Initialize the constructor
     model = Sequential()
@@ -163,6 +180,60 @@ def defineNuralNetwork(X_train,X_test,y_train,y_test):
     plt.legend(['train', 'validation'], loc='upper left')
     plt.show()
     
+def startDecisionTree( X_train, y_train,X_test,y_test):
+    clf = DecisionTreeClassifier(criterion="entropy", max_depth=3)
+    # Train Decision Tree Classifer
+    clf = clf.fit(X_train,y_train)
+    #Predict the response for test dataset
+    y_pred = clf.predict(X_test)
+    print("predict" , y_pred)
+
+def getArrayOfTrainsTestsData(col_names,feature_cols):
+    arr=[]
+    driveIDs=[]
+    numberOfDrives=0
+    for id in getCustomerCarIds():
+        for drive in getDriveIDs(id):
+            driveIDs.append(drive)
+            numberOfDrives=numberOfDrives+1
+    for testNum in range(numberOfDrives):
+        with open('dataTrain.csv', 'w', newline='') as file:
+            index = 0
+            test=[]
+            writer = csv.writer(file)
+            fs=[]
+            for drive in driveIDs:
+                for feature in featurExtraction.loopExtract(str(drive) , 5):
+                    fs_sub=[]
+                    for name in features.Feature:
+                        if(name == features.Feature.driveTime):
+                            fs_sub.append(feature[name][0])
+                        else:
+                            for j in range(3):
+                                fs_sub.append(feature[name][j])
+                    if(testNum == index):
+                        fs_sub.append(ID)
+                        test.append(fs_sub)
+                    else:            
+                        fs.append(fs_sub)
+                index+=1
+            for drivef in fs:
+                drivef.append(ID)
+                writer.writerow(drivef)
+        with open('dataTest.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            for drivef in test:
+                writer.writerow(drivef)
+        pima = pd.read_csv("dataTrain.csv", header=None, names=col_names)
+        X_train = pima[feature_cols] # Features
+        y_train = pima.label # Target variable
+        pima = pd.read_csv("dataTest.csv", header=None, names=col_names)
+        X_test = pima[feature_cols] # Features
+        y_test = pima.label # Target variable
+        arr.append((x_train,y_train,x_test,y_test))
+    return arr
+    
+
 
 
 
@@ -173,82 +244,20 @@ if(__name__ == "__main__"):
         col_names.append(str(i))
         feature_cols.append(str(i))
     col_names.append('label')
+    for touple in getArrayOfTrainsTestsData(col_names, feature_cols):
+        
     # load dataset
     getDataRandomTest([16,17,22,21])
     pima = pd.read_csv("dataTrain.csv", header=None, names=col_names)
     X_train = pima[feature_cols] # Features
     y_train = pima.label # Target variable
     y_train_nural=np.ravel(y_train)
-    #print(type(X_train))
-    #print("###################################################################")
-    #print(y_train)
-    #print("###################################################################")
-    #print(X_train)
-    #print("###################################################################")
-    #print(y_train_nural)
-    #print("###################################################################")
-    #print(type(y_train_nural))
-    #print("###################################################################")
-    #X_train, a, y_train, b = train_test_split(X, y, test_size=0, random_state=1) 
     pima = pd.read_csv("dataTest.csv", header=None, names=col_names)
     X_test = pima[feature_cols] # Features
     y_test = pima.label # Target variable
     y_test_nural=np.ravel(y_test)
-    #c, X_test, d, y_test = train_test_split(X, y, test_size=100, random_state=1) 
+    #nural network
+    ##defineNuralNetwork(X_train, X_test, y_train_nural, y_test_nural)
+    #decision tree
+    ##startDecisionTree(X_train, y_train, X_test, y_test)
 
-    ##clf = DecisionTreeClassifier(criterion="entropy", max_depth=3)
-
-    # Train Decision Tree Classifer
-    ##clf = clf.fit(X_train,y_train)
-
-    #Predict the response for test dataset
-    ##y_pred = clf.predict(X_test)
-    ##print("predict" , y_pred)
-
-    defineNuralNetwork(X_train, X_test, y_train_nural, y_test_nural)
-
-
-#def funcThatNotWorking()
-    col_names = []
-    feature_cols=[]
-    for i in range(1,38):
-        col_names.append(str(i))
-        feature_cols.append(str(i))
-    col_names.append('label')
-    # load dataset
-    getDataRandomTest([16,17,22,21])
-    pima = pd.read_csv("dataTrain.csv", header=None, names=col_names)
-    x_train = pima[feature_cols] # Features
-    y_train = pima.label # Target variable
-    #X_train, a, y_train, b = train_test_split(X, y, test_size=0, random_state=1) 
-    pima = pd.read_csv("dataTest.csv", header=None, names=col_names)
-    x_test = pima[feature_cols] # Features
-    y_test = pima.label # Target variable
-
-    model = Sequential()
-
-    # IF you are running with a GPU, try out the CuDNNLSTM layer type instead (don't pass an activation, tanh is required)
-    model.add(LSTM(128, input_shape=(x_train.shape[1:]), activation='relu', return_sequences=True))
-    model.add(Dropout(0.2))
-
-    model.add(LSTM(128, activation='relu'))
-    model.add(Dropout(0.1))
-
-    model.add(Dense(32, activation='relu'))
-    model.add(Dropout(0.2))
-
-    model.add(Dense(10, activation='softmax'))
-
-    opt = tf.keras.optimizers.Adam(lr=0.001, decay=1e-6)
-
-    # Compile model
-    model.compile(
-        loss='sparse_categorical_crossentropy',
-        optimizer=opt,
-        metrics=['accuracy'],
-    )
-
-    model.fit(x_train,
-            y_train,
-            epochs=3,
-            validation_data=(x_test, y_test))
