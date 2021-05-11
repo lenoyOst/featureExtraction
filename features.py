@@ -70,16 +70,16 @@ class Feature(Enum):
     VarianceConstantSpeed = 3 # ~
     DistancesFromRegressionAcceleration = 4 # ?X
     DistancesFromRegressionDecceleration = 5 # ?X
-    ConstantExtremePedal = 6 # X
-    ConstantPressPedalInclines = 7 # X
-    ConstantReleasePedalInclines = 8 # X
-    ConstantPressPedalTime = 9 # ?
-    ConstantAboveSpeedLimitTime = 10 # ?
-    ConstantAboveSpeedLimitSpeeed = 11 # ?
-    ConstantBelowSpeedLimitSpeeed = 12 # ?
-    driveTime = 13 # 
-    #PearsonsAcceleration = 6 # ?X
-    #PearsonsDecceleration = 7 # ?X
+    PearsonsAcceleration = 6 # ?X
+    PearsonsDecceleration = 7 # ?X
+    ConstantExtremePedal = 8 # X
+    ConstantPressPedalInclines = 9 # X
+    ConstantReleasePedalInclines = 10 # X
+    ConstantPressPedalTime = 11 # ?
+    ConstantAboveSpeedLimitTime = 12 # ?
+    ConstantAboveSpeedLimitSpeeed = 13 # ?
+    ConstantBelowSpeedLimitSpeeed = 14 # ?
+    #driveTime = 13 # 
 
 class Line:
     def __init__(self, points):
@@ -141,9 +141,12 @@ class Drive:
         result = cursor.fetchall()
         self.startTime = result[0][0]
         endTime = self.startTime +datetime.timedelta(minutes=time)
-        cursor.execute("SELECT MAX(drive_characteristics_id) FROM drive_characteristics WHERE drive_id = "+self.id+" and time < '"+datetime.datetime.strftime(endTime, "%Y-%m-%d %H:%M:%S")+"'")
+        cursor.execute("SELECT MAX(drive_characteristics_id), time FROM drive_characteristics WHERE drive_id = "+self.id+" and time < '"+datetime.datetime.strftime(endTime, "%Y-%m-%d %H:%M:%S")+"'")
         result = cursor.fetchall()
         self.max_id = str(result[0][0])
+        cursor.execute("SELECT MAX(time), time FROM drive_characteristics WHERE drive_id = "+self.id+" and time < '"+datetime.datetime.strftime(endTime, "%Y-%m-%d %H:%M:%S")+"'")
+        result = cursor.fetchall()
+        self.end_time = datetime.datetime.strptime((result[0][0]), "%Y-%m-%d %H:%M:%S.%f")
         #getting the speedData array from the DB (setting the correct time stemps)
         cursor.execute("SELECT time, speed FROM drive_characteristics WHERE drive_id = "+self.id+" and drive_characteristics_id < "+self.max_id)
         result = cursor.fetchall()
@@ -443,8 +446,8 @@ def extract(cursor , driveId, connection, time):
     features[Feature.VarianceConstantSpeed] = statistic(drive.distancesFromAvgConstantSpeed())
     features[Feature.DistancesFromRegressionAcceleration] = statistic(drive.distancesFromRegressionSpeedAcceleration())
     features[Feature.DistancesFromRegressionDecceleration] = statistic(drive.distancesFromRegressionSpeedDecceleration())
-    #features[Feature.PearsonsAcceleration] = statistic(drive.pearsonsAcceleration())
-    #features[Feature.PearsonsDecceleration] = statistic(drive.pearsonsDecceleration())
+    features[Feature.PearsonsAcceleration] = statistic(drive.pearsonsAcceleration())
+    features[Feature.PearsonsDecceleration] = statistic(drive.pearsonsDecceleration())
     features[Feature.ConstantExtremePedal] = statistic(drive.constantExtremePedal())
     features[Feature.ConstantPressPedalInclines] = statistic(drive.constantPressPedalInclines())
     features[Feature.ConstantReleasePedalInclines] = statistic(drive.constantReleasePedalInclines())
@@ -452,7 +455,7 @@ def extract(cursor , driveId, connection, time):
     features[Feature.ConstantAboveSpeedLimitTime] = statistic(drive.constantAboveSpeedLimitTime())
     features[Feature.ConstantAboveSpeedLimitSpeeed] = statistic(drive.constantAboveSpeedLimitSpeeed())
     features[Feature.ConstantBelowSpeedLimitSpeeed] = statistic(drive.constantBelowSpeedLimitSpeeed())
-    features[Feature.driveTime] = time - drive.startTime
+    #features[Feature.driveTime] = (drive.end_time - drive.startTime).total_seconds()
     return int(drive.max_id), features
 
 def createGraph(cursor , driveId, connection, time):

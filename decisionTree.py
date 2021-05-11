@@ -22,10 +22,10 @@ import matplotlib.pyplot as plt
 def getDriveIDs(customer_car_id):
     connection = mysql.connector.connect(
             #host = "84.229.65.93",
-            host = "84.94.84.90",
-            #host = "127.0.0.1",
-            user = "Omer",
-            #user = "root",
+            #host = "84.94.84.90",
+            host = "127.0.0.1",
+            #user = "Omer",
+            user = "root",
             password = "OMEome0707",
             database = "ottomate",
             auth_plugin='mysql_native_password'
@@ -41,10 +41,10 @@ def getDriveIDs(customer_car_id):
 def getCustomerCarIds():
     connection = mysql.connector.connect(
             #host = "84.229.65.93",
-            host = "84.94.84.90",
-            #host = "127.0.0.1",
-            user = "Omer",
-            #user = "root",
+            #host = "84.94.84.90",
+            host = "127.0.0.1",
+            #user = "Omer",
+            user = "root",
             password = "OMEome0707",
             database = "ottomate",
             auth_plugin='mysql_native_password'
@@ -188,37 +188,47 @@ def startDecisionTree( X_train, y_train,X_test,y_test):
     y_pred = clf.predict(X_test)
     print("predict" , y_pred)
 
-def getArrayOfTrainsTestsData(col_names,feature_cols):
+def getArrayOfTrainsTestsData():
+
+    col_names = []
+    feature_cols=[]
+    for i in range(1,43):
+        col_names.append(str(i))
+        feature_cols.append(str(i))
+    col_names.append('label')
+
     arr=[]
     driveIDs=[]
-    numberOfDrives=0
-    for id in getCustomerCarIds():
-        for drive in getDriveIDs(id):
-            driveIDs.append(drive)
-            numberOfDrives=numberOfDrives+1
-    for testNum in range(numberOfDrives):
+
+    customerCarIDs = getCustomerCarIds()
+    customerCarIDs.remove(15)
+
+    for customerCarID in customerCarIDs:
+        for driveID in getDriveIDs(customerCarID):
+            driveIDs.append((driveID,customerCarID))
+
+    for testNum in range(len(driveIDs)):
+        test=[]
         with open('dataTrain.csv', 'w', newline='') as file:
             index = 0
-            test=[]
             writer = csv.writer(file)
             fs=[]
             for drive in driveIDs:
-                for feature in featurExtraction.loopExtract(str(drive) , 5):
+                for feature in featurExtraction.loopExtract(str(drive[0]) , 5):
                     fs_sub=[]
                     for name in features.Feature:
-                        if(name == features.Feature.driveTime):
-                            fs_sub.append(feature[name][0])
-                        else:
-                            for j in range(3):
-                                fs_sub.append(feature[name][j])
+                        #if(name == features.Feature.driveTime):
+                            #fs_sub.append(feature[name][0])
+                       # else:
+                        for j in range(3):
+                            fs_sub.append(feature[name][j])
+                    fs_sub.append(drive[1])
                     if(testNum == index):
-                        fs_sub.append(ID)
                         test.append(fs_sub)
                     else:            
                         fs.append(fs_sub)
                 index+=1
             for drivef in fs:
-                drivef.append(ID)
                 writer.writerow(drivef)
         with open('dataTest.csv', 'w', newline='') as file:
             writer = csv.writer(file)
@@ -230,7 +240,7 @@ def getArrayOfTrainsTestsData(col_names,feature_cols):
         pima = pd.read_csv("dataTest.csv", header=None, names=col_names)
         X_test = pima[feature_cols] # Features
         y_test = pima.label # Target variable
-        arr.append((x_train,y_train,x_test,y_test))
+        arr.append(((X_train,y_train),(X_test,y_test)))
     return arr
     
 
@@ -244,8 +254,6 @@ if(__name__ == "__main__"):
         col_names.append(str(i))
         feature_cols.append(str(i))
     col_names.append('label')
-    for touple in getArrayOfTrainsTestsData(col_names, feature_cols):
-        
     # load dataset
     getDataRandomTest([16,17,22,21])
     pima = pd.read_csv("dataTrain.csv", header=None, names=col_names)
