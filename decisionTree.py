@@ -51,7 +51,7 @@ def getCustomerCarIds():
         )
     cursor = connection.cursor()
 
-    cursor.execute("select customer_car_id from customer_car")
+    cursor.execute("select customer_car_id from customer_car where customer_id != 0")
     result = cursor.fetchall()
 
     result = list(map(lambda  row: row[0], result))
@@ -192,7 +192,28 @@ def getArrayOfTrainsTestsData():
 
     col_names = []
     feature_cols=[]
-    for i in range(1,43):
+    mask =  [[True, True, True],
+            [True, True, True],
+            [True, True, True],
+            [True, True, True],
+            [True, True, True],
+            [True, True, True],
+            [True, True, True],
+            [True, True, True],
+            [True, True, True],
+            [True, True, True],
+            [True, True, True],
+            [True, True, True],
+            [True, True, True],
+            [True, True, True],]
+    
+    count = 0
+    for i in range(14):
+        for j in range(3):
+            if(mask[i][j]):
+                count+=1
+
+    for i in range(1,count+1):
         col_names.append(str(i))
         feature_cols.append(str(i))
     col_names.append('label')
@@ -201,7 +222,6 @@ def getArrayOfTrainsTestsData():
     driveIDs=[]
 
     customerCarIDs = getCustomerCarIds()
-    customerCarIDs.remove(15)
 
     for customerCarID in customerCarIDs:
         for driveID in getDriveIDs(customerCarID):
@@ -221,7 +241,8 @@ def getArrayOfTrainsTestsData():
                             #fs_sub.append(feature[name][0])
                        # else:
                         for j in range(3):
-                            fs_sub.append(feature[name][j])
+                            if(mask[name.value-1][j]):
+                                fs_sub.append(feature[name][j])
                     fs_sub.append(drive[1])
                     if(testNum == index):
                         test.append(fs_sub)
