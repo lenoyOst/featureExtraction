@@ -5,13 +5,15 @@ import mysql
 import csv
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import LogisticRegression
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import BaggingClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import StackingClassifier
 import numpy as np
 from random import randint
+import sklearn.linear_model as aaa
 
 #SQL connection
 connection = mysql.connector.connect(
@@ -380,7 +382,7 @@ def multyModel(models, min):
     return result2
 
 #main
-result = multyModel([DecisionTreeClassifier(random_state=0), GaussianNB(), LinearDiscriminantAnalysis()], 2)
-#result = oneModel(DecisionTreeClassifier(random_state=0))
+#result = multyModel([DecisionTreeClassifier(random_state=0), GaussianNB(), LinearDiscriminantAnalysis()], 2)
+result = oneModel(StackingClassifier())
 calculateTable(result)
 calculateCarSeperateTable(result)
