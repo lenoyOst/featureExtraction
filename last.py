@@ -1,3 +1,4 @@
+import random
 from numpy.lib.type_check import isreal
 import features
 import featurExtraction
@@ -5,15 +6,18 @@ import mysql
 import csv
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.naive_bayes import GaussianNB
-from sklearn.ensemble import BaggingClassifier
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.ensemble import StackingClassifier
 import numpy as np
 from random import randint
-import sklearn.linear_model as aaa
+
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.ensemble import BaggingClassifier
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegressionCV
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier
+
 
 #SQL connection
 connection = mysql.connector.connect(
@@ -381,8 +385,52 @@ def multyModel(models, min):
 
     return result2
 
+#for finding algorithms
+def calculateTrueCol(result):
+    tp, tn,fp, fn = 0,0,0,0
+    for a, b, _ in result:
+        if(a and b):
+            tp+=1
+        elif(a and not b):
+            fp+=1
+        elif(not a and b):
+            fn+=1
+        else:
+            tn+=1
+
+    total = tp+tn+fp+fn
+    tp = float('{:0.2f}'.format(tp/total*100))
+    tn = float('{:0.2f}'.format(tn/total*100))
+    t = float('{:0.2f}'.format(tp + tn))
+    return t
+        
+def mulyModelForTrueCols(models):
+    train_test_arr = oneTestRestTrain(getRealCustomerCarIds())
+    test_arr = precentTestRestTrain(getThiefCustomerCarIds(), 100)
+    train_arr = precentTestRestTrain(getRealCustomerCarIds(), 0)
+
+    results = []
+    for model in models:
+        result = []
+
+        #real_drivers
+        for ((x_train, y_train),(x_test, y_test)) in train_test_arr:
+            result.extend(list(map(lambda g: (guessToBool(g), False, getCarIDs(g[0])[0]), guesses(model, x_train, y_train, x_test, y_test))))
+            
+        #theif_drivers
+        ((_, _),(x_test, y_test)) = test_arr
+        ((x_train, y_train),(_,_)) = train_arr
+        result.extend(list(map(lambda g: (guessToBool(g), True, getCarIDs(g[0])[0]), guesses(model, x_train, y_train, x_test, y_test))))
+        
+        results.append(result)
+    
+    trueColsResults=[]
+    for result in results:
+        trueColsResults.append(calculateTrueCol(result))
+    
+    return trueColsResults
 #main
-#result = multyModel([DecisionTreeClassifier(random_state=0), GaussianNB(), LinearDiscriminantAnalysis()], 2)
-result = oneModel(StackingClassifier())
+result = multyModel([LogisticRegressionCV(random_state=0), LogisticRegression(random_state=0), MLPClassifier(random_state=0, max_iter=1000), GradientBoostingClassifier(random_state=0), LinearDiscriminantAnalysis()], 4)
+#result = oneModel(LogisticRegressionCV(random_state=0))
 calculateTable(result)
 calculateCarSeperateTable(result)
