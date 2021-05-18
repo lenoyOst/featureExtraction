@@ -317,6 +317,27 @@ def allTrain(drives): #list[(driveID,customer_car_id)]
     pima = pd.read_csv("data.csv", header=None, names=col_names)
     return (pima[feature_cols],pima.label)
 
+def allTest(feature , customer_car_id):#featurExtraction.sectionExtract(driveID, minute, sectionNum)
+    col_names = []
+    feature_cols=[]
+    
+    for i in range(1,43):
+        col_names.append(str(i))
+        feature_cols.append(str(i))
+    col_names.append('label')
+
+    with open('data.csv', 'w', newline='') as file:
+        writer = csv.writer(file)
+        fs=[]
+        for name in features.Feature:
+            for j in range(3):
+                fs.append(feature[name][j])
+        fs.append(customer_car_id)
+        writer.writerow(fs)
+
+    pima = pd.read_csv("data.csv", header=None, names=col_names)
+    return (pima[feature_cols],pima.label)
+
 #guesses
 def guesses(model, x_train, y_train, x_test, y_test) -> list[Guess]:
     result = []
