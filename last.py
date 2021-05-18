@@ -24,6 +24,10 @@ import datetime
 
 Guess = tuple[int, int]
 
+minute = 5
+sectionNum = 2
+bonus = 10
+
 #SQL connection
 
 connection = mysql.connector.connect(
@@ -118,14 +122,14 @@ def getDriveIDsByOpen(open) -> list[int]:
     result = list(map(lambda  row: row[0], result))
     return result
 
-def getDriveIDsCustomerCarIDs(open):
+def getRealDriveIDsCustomerCarIDs(open):
     #get drive id's, customer car id's
     if(open):
         #all opened
-        cursor.execute('SELECT drive_id, customer_car_id FROM drive WHERE end_time is null')
+        cursor.execute('SELECT drive_id, customer_car_id FROM drive WHERE end_time is null and customer_car_id in (SELECT customer_car_id FROM customer_car WHERE customer_id != 0)')
     else:
         #all closed
-        cursor.execute('SELECT drive_id, customer_car_id FROM drive WHERE end_time is not null')
+        cursor.execute('SELECT drive_id, customer_car_id FROM drive WHERE end_time is not null and customer_car_id in (SELECT customer_car_id FROM customer_car WHERE customer_id != 0)')
 
     result = cursor.fetchall()
     return result
@@ -148,6 +152,18 @@ def tryCloseDrive(driveID) -> bool:
         return True
 
     return False
+
+def getCustomerCarID(driveID) -> int:
+    cursor.execute("select customer_car_id from drive where drive_id = "+driveID)
+    result = cursor.fetchall()
+
+    return result[0][0]
+
+def isThief(customerCarID) -> bool:
+    cursor.execute("select customer_id from customer_car where customer_car_id = "+customerCarID)
+    result = cursor.fetchall()
+
+    return result[0][0] == 0
 
 #split train test
 def oneTestRestTrain(customerCarIDs):
@@ -535,52 +551,120 @@ def mulyModelForTrueCols(models) -> list[float]:
     return trueColsResults
 
 #closing drives
+def closeDrive(driveID):
+    ended = False
+    while(not ended):
+        ended = tryCloseDrive(driveID)
+        if(ended):
+            f = featurExtraction.sectionExtract(driveID, minute, sectionNum)
+        else:
+            beforeExtracting = datetime.now()
+            f = featurExtraction.sectionExtract(driveID, minute, sectionNum)
+            afterExtracting = datetime.now()
+
+
+            delta = (afterExtracting - beforeExtracting).total_seconds()
+            if(delta <minute*60):
+                time.sleep(minute*60+bonus - delta)
+            sectionNum+=1
+
+class AlgorithmOne:
+    def __init__(self, model) -> None:
+        self.model = model
+    def learn(self, x_train, y_train) -> None:
+        self.model.fit(x_train, y_train)
+    def detect(self, x_test, carID) -> bool:
+        probs = self.model.predict_proba(x_test)[0]
+        for i in range(len(probs)):
+            if(probs[i] >= 0.8):
+                match_id = self.model.classes_[i]
+                if(carID == getCarIDs(match_id)[0]):
+                    return False
+                else:
+                    return True
+        return True
+
+class AlgorithmMulty:
+    def __init__(self, models, limitSuccess) -> None:
+        self.models = models
+        self.limitSuccess = limitSuccess
+    def learn(self, x_train, y_train) -> None:
+        for model in self.models:
+            model.fit(x_train, y_train)
+    def detect(self, x_test, carID) -> bool:
+        countReal = 0
+        for model in self.models:
+            probs = model.predict_proba(x_test)[0]
+            for i in range(len(probs)):
+                if(probs[i] >= 0.8):
+                    match_id = self.model.classes_[i]
+                    if(carID == getCarIDs(match_id)[0]):
+                        countReal += 1
+        if(countReal >= self.limitSuccess):
+            return False
+        else:
+            return True
+
+#main
 def closeDrives() -> None:
     for drive_id in getDriveIDsByOpen(True):
         tryCloseDrive(drive_id)
 
-#main
 def checkAccurency() -> None:
     result = multyModel([LogisticRegressionCV(random_state=0), LogisticRegression(random_state=0), MLPClassifier(random_state=0, max_iter=1000), GradientBoostingClassifier(random_state=0), LinearDiscriminantAnalysis()], 4)
     #result = oneModel(LogisticRegressionCV(random_state=0))
     calculateTable(result)
     calculateCarSeperateTable(result)
 
-#closeDrives()
-
 def realTimeCheck(driveID):
-    minute = 5
-    sectionNum = 4
-    
-    #learn
-    pass
-    #end learn
-    
-    #test
-    time.sleep(sectionNum*minute*60)
+    reconnect()
+    algo = AlgorithmOne(LogisticRegressionCV(random_state=0))
+
+    beforeExtracting = datetime.now()
+    x_train, y_train = allTrain(getRealDriveIDsCustomerCarIDs(False))
+    afterExtracting = datetime.now()
+
+    algo.learn(x_train, y_train)
+
+    delta = (afterExtracting - beforeExtracting).total_seconds()
+    if(delta < sectionNum*minute*60):
+        time.sleep(sectionNum*minute*60+bonus - delta)
+
+    customer_car_id = getCustomerCarID(driveID)
+    if(not isThief(customer_car_id)):
+        closeDrive(driveID)
+        return
 
     ended =False
 
     while(not ended):
-        ended = tryCloseDrive(driveID)
+        ended = tryCloseDrive(driveID) # reconnnect
         if(ended):
             f = featurExtraction.sectionExtract(driveID, minute, sectionNum)
-            #calc
-            pass
-            #end calc
+            x_test, _ = allTest(f, customer_car_id)
+            if(algo.detect(x_test, getCarIDs(customer_car_id)[0])):
+                print("thief")
+            else:
+                print("ok")
 
         else:
             beforeExtracting = datetime.now()
             f = featurExtraction.sectionExtract(driveID, minute, sectionNum)
+            x_test, _ = allTest(f, customer_car_id)
+            if(algo.detect(x_test, getCarIDs(customer_car_id)[0])):
+                print("thief")
+            else:
+                print("ok")
             afterExtracting = datetime.now()
-
-            #calc
-            pass
-            #end calc
 
             delta = (afterExtracting - beforeExtracting).total_seconds()
             if(delta <minute*60):
-                time.sleep(delta - minute*60)
+                time.sleep(minute*60+bonus - delta)
             sectionNum+=1
+
+            customer_car_id = getCustomerCarID(driveID)
+            if(not isThief(customer_car_id)):
+                closeDrive(driveID)
+                return
 
 checkAccurency()

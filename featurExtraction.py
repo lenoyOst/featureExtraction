@@ -36,7 +36,7 @@ def sectionExtract(driveID, minute, sectionNum):
                 i+=1
             return f
             
-def loopExtract(driveID , min):
+def loopExtract(driveID , minute):
     stop = False
     connection = mysql.connector.connect(
         host = "127.0.0.1",
@@ -50,15 +50,15 @@ def loopExtract(driveID , min):
 
     fs = []        
     while(True):
-        if(not os.path.exists('cache/'+driveID+'_'+str(index)+'.csv')):
-            max_id, f = features.extract(cursor , driveID, connection, index*min + 5)
-            with open('cache/'+driveID+'_'+str(index)+'.csv', 'w', newline='') as file:
+        if(not os.path.exists('new_cache/'+driveID+'_'+str(minute*index+minute)+'.csv')):
+            max_id, f = features.extract(cursor , driveID, connection, index*minute + 5)
+            with open('new_cache/'+driveID+'_'+str(minute*index+minute)+'.csv', 'w', newline='') as file:
                 writer = csv.writer(file)
                 writer.writerow([max_id])
                 for key in f:
                     writer.writerow(f[key])
         else:
-            with open('cache/'+driveID+'_'+str(index)+'.csv', 'r') as f:
+            with open('new_cache/'+driveID+'_'+str(minute*index+minute)+'.csv', 'r') as f:
                 lis = [line.split(',') for line in f]
                 lis = list(map(lambda row: list(map(lambda x: float(''.join(list(filter(lambda c: c!= '\n', x)))), row)), lis))
                 max_id = int(lis[0][0])
