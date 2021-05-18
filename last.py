@@ -20,8 +20,12 @@ from sklearn.tree import DecisionTreeClassifier
 
 import concurrent.futures
 import time
+import datetime
+
+Guess = tuple[int, int]
 
 #SQL connection
+
 connection = mysql.connector.connect(
             host = "127.0.0.1",
             user = "root",
@@ -31,8 +35,19 @@ connection = mysql.connector.connect(
         )
 cursor = connection.cursor()
 
+def reconnect() -> None:
+    connection.close()
+    connection = mysql.connector.connect(
+            host = "127.0.0.1",
+            user = "root",
+            password = "OMEome0707",
+            database = "ottomate",
+            auth_plugin='mysql_native_password'
+        )
+    cursor = connection.cursor()
+
 #SQL queries
-def getDriveIDs(customer_car_id = None):
+def getDriveIDs(customer_car_id = None) -> list[int]:
     #get drive id's
     if(customer_car_id is None):
         #all drive id's (except the trashed one's)
@@ -45,7 +60,7 @@ def getDriveIDs(customer_car_id = None):
     result = list(map(lambda  row: row[0], result))
     return result
 
-def getCustomerCarIds(car_id = None, customer_id = None):
+def getCustomerCarIds(car_id = None, customer_id = None) -> list[int]:
     #get customer_car id's
     if(car_id is None and customer_id is None):
         #all customer_car id's
@@ -64,7 +79,7 @@ def getCustomerCarIds(car_id = None, customer_id = None):
     result = list(map(lambda  row: row[0], result))
     return result
 
-def getRealCustomerCarIds():
+def getRealCustomerCarIds() -> list[int]:
     #get real customer_car id's
     cursor.execute("select customer_car_id from customer_car where customer_id != 0")
     result = cursor.fetchall()
@@ -72,7 +87,7 @@ def getRealCustomerCarIds():
     result = list(map(lambda  row: row[0], result))
     return result
 
-def getThiefCustomerCarIds():
+def getThiefCustomerCarIds() -> list[int]:
     #get thief customer_car id's
     cursor.execute("select customer_car_id from customer_car where customer_id = 0 and car_id != 0")
     result = cursor.fetchall()
@@ -80,8 +95,7 @@ def getThiefCustomerCarIds():
     result = list(map(lambda  row: row[0], result))
     return result
 
-def getCarIDs(customer_car_id = None):
-    #get car id's
+def getCarIDs(customer_car_id = None) -> list[str]:
     if(customer_car_id is None):
         cursor.execute("select distinct car_id from customer_car where car_id != 0")
     else:
@@ -91,7 +105,7 @@ def getCarIDs(customer_car_id = None):
     result = list(map(lambda  row: row[0], result))
     return result 
 
-def getDriveIDsByOpen(open):
+def getDriveIDsByOpen(open) -> list[int]:
     #get drive id's
     if(open):
         #all opened drive id's
@@ -104,38 +118,33 @@ def getDriveIDsByOpen(open):
     result = list(map(lambda  row: row[0], result))
     return result
 
-def tryCloseDrive(driveID):
-    connection2 = mysql.connector.connect(
-            host = "127.0.0.1",
-            user = "root",
-            password = "OMEome0707",
-            database = "ottomate",
-            auth_plugin='mysql_native_password'
-        )
-    cursor2 = connection2.cursor() 
-    cursor2.execute('SELECT max(time) FROM drive_characteristics WHERE drive_id = '+str(driveID))
-    result = cursor2.fetchall()
+def getDriveIDsCustomerCarIDs(open):
+    #get drive id's, customer car id's
+    if(open):
+        #all opened
+        cursor.execute('SELECT drive_id, customer_car_id FROM drive WHERE end_time is null')
+    else:
+        #all closed
+        cursor.execute('SELECT drive_id, customer_car_id FROM drive WHERE end_time is not null')
+
+    result = cursor.fetchall()
+    return result
+
+def tryCloseDrive(driveID) -> bool:
+    cursor.execute('SELECT max(time) FROM drive_characteristics WHERE drive_id = '+str(driveID))
+    result = cursor.fetchall()
     first_time = result[0][0]
 
-    connection2.close()
-    connection2 = mysql.connector.connect(
-            host = "127.0.0.1",
-            user = "root",
-            password = "OMEome0707",
-            database = "ottomate",
-            auth_plugin='mysql_native_password'
-        )
-    cursor2 = connection2.cursor() 
-
+    reconnect()
     time.sleep(1)
 
-    cursor2.execute('SELECT max(time) FROM drive_characteristics WHERE drive_id = '+str(driveID))
-    result = cursor2.fetchall()
+    cursor.execute('SELECT max(time) FROM drive_characteristics WHERE drive_id = '+str(driveID))
+    result = cursor.fetchall()
     second_time = result[0][0]
     
     if(first_time == second_time):
-        cursor2.execute("UPDATE drive SET end_time = '"+first_time+"' WHERE drive_id = "+str(driveID))
-        connection2.commit()
+        cursor.execute("UPDATE drive SET end_time = '"+first_time+"' WHERE drive_id = "+str(driveID))
+        connection.commit()
         return True
 
     return False
@@ -188,6 +197,7 @@ def oneTestRestTrain(customerCarIDs):
         X_test = pima[feature_cols]
         y_test = pima.label
         result.append(((X_train,y_train),(X_test,y_test)))
+    print(type(result[0][0][0]), type(result[0][0][1]), type(result[0][1][0]), type(result[0][1][1]))
     return result
 
 def precentTestRestTrain(customerCarIDs, precent):   
@@ -281,8 +291,34 @@ def precentTestRestTrain(customerCarIDs, precent):
         
     return ((x_train, y_train),(x_test, y_test))
 
+def allTrain(drives): #list[(driveID,customer_car_id)]
+    col_names = []
+    feature_cols=[]
+
+    for i in range(1,43):
+        col_names.append(str(i))
+        feature_cols.append(str(i))
+    col_names.append('label')
+
+    with open('data.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            fs=[]
+            for drive in drives:
+                for feature in featurExtraction.loopExtract(str(drive[0]) , 5):
+                    fs_sub=[]
+                    for name in features.Feature:
+                        for j in range(3):
+                            fs_sub.append(feature[name][j])
+                    fs_sub.append(drive[1])
+                    fs.append(fs_sub)
+            for drivef in fs:
+                writer.writerow(drivef)
+
+    pima = pd.read_csv("data.csv", header=None, names=col_names)
+    return (pima[feature_cols],pima.label)
+
 #guesses
-def guesses(model, x_train, y_train, x_test, y_test):
+def guesses(model, x_train, y_train, x_test, y_test) -> list[Guess]:
     result = []
     model.fit(x_train, y_train)
     probs = model.predict_proba(x_test)
@@ -299,7 +335,7 @@ def guesses(model, x_train, y_train, x_test, y_test):
             result.append((y_test[i], None))
     return result
 
-def guessToBool(guess):
+def guessToBool(guess) -> bool:
     if(guess[1] is None):
         ans = True
     elif(getCarIDs(guess[0])[0] == getCarIDs(guess[1])[0]):
@@ -310,7 +346,7 @@ def guessToBool(guess):
     return ans
 
 #tables
-def calculateTable(result):
+def calculateTable(result) -> None:
     tp, tn,fp, fn = 0,0,0,0
     for a, b, _ in result:
         if(a and b):
@@ -344,7 +380,7 @@ def calculateTable(result):
     for team, col in zip(cols, data):
         print(row_format.format(team, *col))
         
-def calculateCarSeperateTable(result):
+def calculateCarSeperateTable(result) -> None:
     cars = getCarIDs()
     for car in cars:
         tp, tn,fp, fn = 0,0,0,0
@@ -384,7 +420,7 @@ def calculateCarSeperateTable(result):
         print()
 
 #models
-def oneModel(model):
+def oneModel(model) -> list[tuple[bool, bool, str]]:
     result = []
 
     #real_drivers
@@ -399,7 +435,7 @@ def oneModel(model):
     
     return result
 
-def multyModel(models, min):
+def multyModel(models, min) -> list[tuple[bool, bool, str]]:
     train_test_arr = oneTestRestTrain(getRealCustomerCarIds())
     test_arr = precentTestRestTrain(getThiefCustomerCarIds(), 100)
     train_arr = precentTestRestTrain(getRealCustomerCarIds(), 0)
@@ -433,7 +469,7 @@ def multyModel(models, min):
     return result2
 
 #for finding algorithms
-def calculateTrueCol(result):
+def calculateTrueCol(result) -> float:
     tp, tn,fp, fn = 0,0,0,0
     for a, b, _ in result:
         if(a and b):
@@ -451,7 +487,7 @@ def calculateTrueCol(result):
     t = float('{:0.2f}'.format(tp + tn))
     return t
         
-def mulyModelForTrueCols(models):
+def mulyModelForTrueCols(models) -> list[float]:
     train_test_arr = oneTestRestTrain(getRealCustomerCarIds())
     test_arr = precentTestRestTrain(getThiefCustomerCarIds(), 100)
     train_arr = precentTestRestTrain(getRealCustomerCarIds(), 0)
@@ -478,15 +514,52 @@ def mulyModelForTrueCols(models):
     return trueColsResults
 
 #closing drives
-def closeDrives():
+def closeDrives() -> None:
     for drive_id in getDriveIDsByOpen(True):
         tryCloseDrive(drive_id)
 
-
 #main
-#result = multyModel([LogisticRegressionCV(random_state=0), LogisticRegression(random_state=0), MLPClassifier(random_state=0, max_iter=1000), GradientBoostingClassifier(random_state=0), LinearDiscriminantAnalysis()], 4)
-#result = oneModel(LogisticRegressionCV(random_state=0))
-#calculateTable(result)
-#calculateCarSeperateTable(result)
+def checkAccurency() -> None:
+    result = multyModel([LogisticRegressionCV(random_state=0), LogisticRegression(random_state=0), MLPClassifier(random_state=0, max_iter=1000), GradientBoostingClassifier(random_state=0), LinearDiscriminantAnalysis()], 4)
+    #result = oneModel(LogisticRegressionCV(random_state=0))
+    calculateTable(result)
+    calculateCarSeperateTable(result)
 
-closeDrives()
+#closeDrives()
+
+def realTimeCheck(driveID):
+    minute = 5
+    sectionNum = 4
+    
+    #learn
+    pass
+    #end learn
+    
+    #test
+    time.sleep(sectionNum*minute*60)
+
+    ended =False
+
+    while(not ended):
+        ended = tryCloseDrive(driveID)
+        if(ended):
+            f = featurExtraction.sectionExtract(driveID, minute, sectionNum)
+            #calc
+            pass
+            #end calc
+
+        else:
+            beforeExtracting = datetime.now()
+            f = featurExtraction.sectionExtract(driveID, minute, sectionNum)
+            afterExtracting = datetime.now()
+
+            #calc
+            pass
+            #end calc
+
+            delta = (afterExtracting - beforeExtracting).total_seconds()
+            if(delta <minute*60):
+                time.sleep(delta - minute*60)
+            sectionNum+=1
+
+checkAccurency()

@@ -7,14 +7,39 @@ import shutil
 import datetime
 import csv
 
-
+def sectionExtract(driveID, minute, sectionNum):
+    connection = mysql.connector.connect(
+        host = "127.0.0.1",
+        user = "root",
+        password = "OMEome0707",
+        database = "ottomate",
+        auth_plugin='mysql_native_password'
+    )
+    cursor = connection.cursor()
+    if(not os.path.exists('new_cache/'+driveID+'_'+str(minute*sectionNum)+'.csv')):
+        max_id, f = features.extract(cursor , driveID, connection, sectionNum*minute)
+        with open('new_cache/'+driveID+'_'+str(minute*sectionNum)+'.csv', 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow([max_id])
+            for key in f:
+                writer.writerow(f[key])
+        return f
+    else:
+        with open('new_cache/'+driveID+'_'+str(minute*sectionNum)+'.csv', 'r') as f:
+            lis = [line.split(',') for line in f]
+            lis = list(map(lambda row: list(map(lambda x: float(''.join(list(filter(lambda c: c!= '\n', x)))), row)), lis))
+            max_id = int(lis[0][0])
+            f = {}
+            i = 1
+            for key in features.Feature:
+                f[key] = lis[i]
+                i+=1
+            return f
+            
 def loopExtract(driveID , min):
     stop = False
     connection = mysql.connector.connect(
-        #host = "84.229.65.93",
-        #host = "84.94.84.90",
         host = "127.0.0.1",
-        #user = "Omer",
         user = "root",
         password = "OMEome0707",
         database = "ottomate",
@@ -53,12 +78,3 @@ def loopExtract(driveID , min):
         index+=1
     
     return fs
-def main(argv):
-    #USE: [driveID] [time in minuets]
-    loopExtract(argv[0] ,int(argv[1]))
-
-if(__name__ == "__main__"):
-    if(len(sys.argv) != 3):
-        print("USE: [driveID] [time in minuets]")
-    else:
-        main(sys.argv[1:])
