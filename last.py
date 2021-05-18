@@ -18,6 +18,8 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.neural_network import MLPClassifier
 from sklearn.tree import DecisionTreeClassifier
 
+import concurrent.futures
+import time
 
 #SQL connection
 connection = mysql.connector.connect(
@@ -35,12 +37,11 @@ def getDriveIDs(customer_car_id = None):
     if(customer_car_id is None):
         #all drive id's (except the trashed one's)
         cursor.execute('SELECT drive_id FROM drive WHERE customer_car_id != 15')
-        result = cursor.fetchall()
     else:
         #drive id's of customer_car_id
         cursor.execute('SELECT drive_id FROM drive WHERE customer_car_id = '+str(customer_car_id))
-        result = cursor.fetchall()
-
+    
+    result = cursor.fetchall()
     result = list(map(lambda  row: row[0], result))
     return result
 
@@ -49,19 +50,17 @@ def getCustomerCarIds(car_id = None, customer_id = None):
     if(car_id is None and customer_id is None):
         #all customer_car id's
         cursor.execute('select customer_car_id from customer_car WHERE customer_id != 0 or car_id != 0')
-        result = cursor.fetchall()
     elif(customer_id is not None):
         #customer_car id's of customer_id
         cursor.execute('select customer_car_id from customer_car WHERE customer_id = '+str(customer_id))
-        result = cursor.fetchall()
     elif(car_id is not None):
         #customer_car id's of car_id
         cursor.execute('select customer_car_id from customer_car WHERE car_id = '+str(car_id))
-        result = cursor.fetchall()
     else:
         #customer_car id's of customer_id and car_id
         cursor.execute('select customer_car_id from customer_car WHERE customer_id = '+str(customer_id)+'and car_id == '+str(car_id))
-        result = cursor.fetchall()
+    
+    result = cursor.fetchall()
     result = list(map(lambda  row: row[0], result))
     return result
 
@@ -85,13 +84,61 @@ def getCarIDs(customer_car_id = None):
     #get car id's
     if(customer_car_id is None):
         cursor.execute("select distinct car_id from customer_car where car_id != 0")
-        result = cursor.fetchall()
     else:
         cursor.execute("select distinct car_id from customer_car where customer_car_id = "+str(customer_car_id))
-        result = cursor.fetchall()
     
+    result = cursor.fetchall()
     result = list(map(lambda  row: row[0], result))
     return result 
+
+def getDriveIDsByOpen(open):
+    #get drive id's
+    if(open):
+        #all opened drive id's
+        cursor.execute('SELECT drive_id FROM drive WHERE end_time is null')
+    else:
+        #drive closed id's
+        cursor.execute('SELECT drive_id FROM drive WHERE end_time is not null')
+
+    result = cursor.fetchall()
+    result = list(map(lambda  row: row[0], result))
+    return result
+
+def tryCloseDrive(driveID):
+    connection2 = mysql.connector.connect(
+            host = "127.0.0.1",
+            user = "root",
+            password = "OMEome0707",
+            database = "ottomate",
+            auth_plugin='mysql_native_password'
+        )
+    cursor2 = connection2.cursor() 
+    cursor2.execute('SELECT max(time) FROM drive_characteristics WHERE drive_id = '+str(driveID))
+    result = cursor2.fetchall()
+    first_time = result[0][0]
+
+    connection2.close()
+    connection2 = mysql.connector.connect(
+            host = "127.0.0.1",
+            user = "root",
+            password = "OMEome0707",
+            database = "ottomate",
+            auth_plugin='mysql_native_password'
+        )
+    cursor2 = connection2.cursor() 
+
+    time.sleep(1)
+
+    cursor2.execute('SELECT max(time) FROM drive_characteristics WHERE drive_id = '+str(driveID))
+    result = cursor2.fetchall()
+    second_time = result[0][0]
+    
+    if(first_time == second_time):
+        cursor2.execute("UPDATE drive SET end_time = '"+first_time+"' WHERE drive_id = "+str(driveID))
+        connection2.commit()
+        return True
+
+    return False
 
 #split train test
 def oneTestRestTrain(customerCarIDs):
@@ -429,8 +476,17 @@ def mulyModelForTrueCols(models):
         trueColsResults.append(calculateTrueCol(result))
     
     return trueColsResults
+
+#closing drives
+def closeDrives():
+    for drive_id in getDriveIDsByOpen(True):
+        tryCloseDrive(drive_id)
+
+
 #main
-result = multyModel([LogisticRegressionCV(random_state=0), LogisticRegression(random_state=0), MLPClassifier(random_state=0, max_iter=1000), GradientBoostingClassifier(random_state=0), LinearDiscriminantAnalysis()], 4)
+#result = multyModel([LogisticRegressionCV(random_state=0), LogisticRegression(random_state=0), MLPClassifier(random_state=0, max_iter=1000), GradientBoostingClassifier(random_state=0), LinearDiscriminantAnalysis()], 4)
 #result = oneModel(LogisticRegressionCV(random_state=0))
-calculateTable(result)
-calculateCarSeperateTable(result)
+#calculateTable(result)
+#calculateCarSeperateTable(result)
+
+closeDrives()
